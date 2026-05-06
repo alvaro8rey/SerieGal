@@ -5,33 +5,51 @@ struct MovieCardView: View {
     let movie: Movie
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-
+        ZStack(alignment: .bottomLeading) {
             AsyncImage(
                 url: URL(string: ServerConfig.webBaseURL + "/images/\(movie.id).jpg")
-
             ) { image in
                 image
                     .resizable()
-                    .scaledToFit()
+                    .scaledToFill()
             } placeholder: {
                 Rectangle()
-                    .fill(Color.gray.opacity(0.2))
+                    .fill(Color.serieGalCardBackground)
+                    .overlay(
+                        ProgressView()
+                            .tint(.serieGalBlue)
+                    )
             }
-            .frame(width: 150, height: 220)
-            .cornerRadius(14)
-            .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
+            .frame(width: 162, height: 242)
+            .clipped()
 
-            Text(movie.title)
-                .font(.headline)
-                .foregroundColor(.serieGalText)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
+            LinearGradient(
+                colors: [
+                    .clear,
+                    Color.black.opacity(0.88)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
 
-            Text(movie.year)
-                .font(.caption)
-                .foregroundColor(.serieGalSecondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(movie.title)
+                    .font(.headline.weight(.bold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+
+                Text(movie.year)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.white.opacity(0.8))
+            }
+            .padding(12)
         }
-        .frame(width: 150, alignment: .leading)
+        .frame(width: 162, height: 242)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.22), radius: 8, x: 0, y: 5)
     }
 }

@@ -13,51 +13,72 @@ struct SeriesListView: View {
     let series: [Series]
 
     var body: some View {
-        List(series) { serie in
-            NavigationLink {
-                SeriesDetailView(serie: serie)
-            } label: {
-                HStack(spacing: 12) {
+        ScrollView {
+            LazyVStack(spacing: 14) {
+                ForEach(series) { serie in
+                    NavigationLink {
+                        SeriesDetailView(serie: serie)
+                    } label: {
+                        HStack(spacing: 14) {
+                            AsyncImage(
+                                url: URL(string: ServerConfig.webBaseURL + "/images/\(serie.id).jpg")
+                            ) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            } placeholder: {
+                                Rectangle()
+                                    .fill(Color.serieGalCardBackground)
+                            }
+                            .frame(width: 72, height: 106)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-                    // Carátula
-                    AsyncImage(
-                        url: URL(string: ServerConfig.webBaseURL + "/images/\(serie.id).jpg")
-                    ) { image in
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    } placeholder: {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(serie.title)
+                                    .font(.headline)
+                                    .foregroundColor(.serieGalText)
+
+                                Text(seriesInfo(for: serie))
+                                    .font(.subheadline)
+                                    .foregroundColor(.serieGalSecondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundColor(.serieGalTertiary)
+                        }
+                        .padding(14)
+                        .background(Color.serieGalCardBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        )
                     }
-                    .frame(width: 60, height: 90)
-                    .clipped()
-                    .cornerRadius(8)
-
-                    // Texto
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(serie.title)
-                            .font(.headline)
-                            .foregroundColor(.serieGalText)
-
-                        Text(seriesInfo(for: serie))
-                            .font(.subheadline)
-                            .foregroundColor(.serieGalSecondary)
-                    }
+                    .buttonStyle(.plain)
                 }
-                .padding(.vertical, 6)
             }
+            .padding()
         }
+        .background(
+            LinearGradient(
+                colors: [Color.serieGalBackground, Color.serieGalSurface],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
         .navigationTitle("Series")
-        .listStyle(.plain)
     }
 
     // MARK: - Info series
     private func seriesInfo(for serie: Series) -> String {
-        let seasons = serie.seasons?.count ?? 0
-        let episodes = serie.seasons?
-            .flatMap { $0.episodes }
-            .count ?? 0
+        let seasons = serie.normalizedSeasons.count
+        let episodes = serie.normalizedSeasons.reduce(0) { partial, season in
+            partial + season.episodes.count
+        }
 
         return "\(seasons) temporadas · \(episodes) episodios"
     }
