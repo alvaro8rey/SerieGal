@@ -9,7 +9,8 @@ struct SeriesDetailView: View {
     let serie: Series
     @State private var selectedSeasonID: Int?
     @State private var pendingPlayback: EpisodePlaybackRequest?
-    @State private var resumeChoice: EpisodeResumeChoice?
+    @State private var expandedEpisodeID: String?
+    @State private var resumeProgressByEpisode: [String: ProgressResponse] = [:]
 
     var body: some View {
         ScrollView {
@@ -55,44 +56,6 @@ struct SeriesDetailView: View {
                 seriesId: playback.seriesId,
                 startAtTime: playback.startAt
             )
-        }
-        .confirmationDialog(
-            "Continuar episodio",
-            isPresented: Binding(
-                get: { resumeChoice != nil },
-                set: { isPresented in
-                    if !isPresented {
-                        resumeChoice = nil
-                    }
-                }
-            ),
-            titleVisibility: .visible
-        ) {
-            if let resumeChoice {
-                Button("Continuar viendo (\(formattedTime(resumeChoice.progress.time)))") {
-                    pendingPlayback = EpisodePlaybackRequest(
-                        episode: resumeChoice.episode,
-                        seriesId: serie.id,
-                        startAt: resumeChoice.progress.time
-                    )
-                    self.resumeChoice = nil
-                }
-                Button("Ver desde el inicio") {
-                    pendingPlayback = EpisodePlaybackRequest(
-                        episode: resumeChoice.episode,
-                        seriesId: serie.id,
-                        startAt: nil
-                    )
-                    self.resumeChoice = nil
-                }
-            }
-            Button("Cancelar", role: .cancel) {
-                resumeChoice = nil
-            }
-        } message: {
-            if resumeChoice != nil {
-                Text("Hay progreso guardado para este episodio.")
-            }
         }
     }
 
@@ -265,36 +228,28 @@ struct SeriesDetailView: View {
 
             LazyVStack(spacing: 12) {
                 ForEach(Array(season.episodes.enumerated()), id: \.element.id) { index, episode in
-                    Button {
-                        Task {
-                            let progressData = await progress.getProgress(
+                    VStack(alignment: .leading, spacing: 10) {
+                        Button {
+                            handleEpisodeTap(episode)
+                        } label: {
+                            EpisodeRowView(
                                 seriesId: serie.id,
-                                episodeId: episode.id
+                                episode: episode,
+                                index: index + 1,
+                                serieTitle: serie.title
                             )
-                            await MainActor.run {
-                                if let progressData, shouldOfferResume(progressData) {
-                                    resumeChoice = EpisodeResumeChoice(
-                                        episode: episode,
-                                        progress: progressData
-                                    )
-                                } else {
-                                    pendingPlayback = EpisodePlaybackRequest(
-                                        episode: episode,
-                                        seriesId: serie.id,
-                                        startAt: nil
-                                    )
-                                }
-                            }
                         }
-                    } label: {
-                        EpisodeRowView(
-                            seriesId: serie.id,
-                            episode: episode,
-                            index: index + 1,
-                            serieTitle: serie.title
-                        )
+                        .buttonStyle(.plain)
+
+                        if expandedEpisodeID == episode.id,
+                           let savedProgress = resumeProgressByEpisode[episode.id] {
+                            resumeActionRow(
+                                episode: episode,
+                                savedProgress: savedProgress
+                            )
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -306,6 +261,89 @@ struct SeriesDetailView: View {
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
         .padding(.horizontal)
+    }
+
+    private func handleEpisodeTap(_ episode: Episode) {
+        Task {
+            let progressData = await progress.getProgress(
+                seriesId: serie.id,
+                episodeId: episode.id
+            )
+
+            await MainActor.run {
+                guard let progressData, shouldOfferResume(progressData) else {
+                    startPlayback(for: episode, startAt: nil)
+                    return
+                }
+
+                resumeProgressByEpisode[episode.id] = progressData
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    expandedEpisodeID = (expandedEpisodeID == episode.id) ? nil : episode.id
+                }
+            }
+        }
+    }
+
+    private func startPlayback(for episode: Episode, startAt: Double?) {
+        expandedEpisodeID = nil
+        pendingPlayback = EpisodePlaybackRequest(
+            episode: episode,
+            seriesId: serie.id,
+            startAt: startAt
+        )
+    }
+
+    private func resumeActionRow(episode: Episode, savedProgress: ProgressResponse) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Hay progreso guardado en \(formattedTime(savedProgress.time))")
+                .font(.caption)
+                .foregroundColor(.serieGalSecondary)
+
+            HStack(spacing: 10) {
+                Button {
+                    startPlayback(for: episode, startAt: savedProgress.time)
+                } label: {
+                    Label("Continuar viendo", systemImage: "play.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            LinearGradient(
+                                colors: [.serieGalBlue, .serieGalViolet],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .foregroundColor(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    startPlayback(for: episode, startAt: nil)
+                } label: {
+                    Text("Ver desde el inicio")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.serieGalCardBackground)
+                        .foregroundColor(.serieGalText)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .background(Color.serieGalSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
     }
 
     private var totalEpisodes: Int {
@@ -356,9 +394,4 @@ private struct EpisodePlaybackRequest: Identifiable, Hashable {
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
-}
-
-private struct EpisodeResumeChoice {
-    let episode: Episode
-    let progress: ProgressResponse
 }
