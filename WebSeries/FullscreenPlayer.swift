@@ -10,7 +10,7 @@ struct FullscreenPlayer: UIViewControllerRepresentable {
     }
 
     func makeUIViewController(context: Context) -> AVPlayerViewController {
-        print("🎥 makeUIViewController")
+        debugLog("🎥 makeUIViewController")
         let controller = AVPlayerViewController()
         controller.player = context.coordinator.player
         controller.modalPresentationStyle = .fullScreen
@@ -21,7 +21,7 @@ struct FullscreenPlayer: UIViewControllerRepresentable {
         _ uiViewController: AVPlayerViewController,
         context: Context
     ) {
-        print("🔄 updateUIViewController")
+        debugLog("🔄 updateUIViewController")
     }
 
     // MARK: - Coordinator
@@ -30,8 +30,8 @@ struct FullscreenPlayer: UIViewControllerRepresentable {
         let player: AVPlayer
 
         init(url: URL) {
-            print("🎬 Coordinator INIT")
-            print("URL:", url.absoluteString)
+            debugLog("🎬 Coordinator INIT")
+            debugLog("URL:", url.absoluteString)
             self.player = AVPlayer(url: url)
             super.init()
 
@@ -54,22 +54,22 @@ struct FullscreenPlayer: UIViewControllerRepresentable {
                 if let item = object as? AVPlayerItem {
                     switch item.status {
                     case .readyToPlay:
-                        print("✅ AVPlayerItem READY TO PLAY")
+                        debugLog("✅ AVPlayerItem READY TO PLAY")
                         player.play()
                     case .failed:
-                        print("❌ AVPlayerItem FAILED")
-                        print(item.error ?? "Error desconocido")
+                        debugLog("❌ AVPlayerItem FAILED")
+                        debugLog(item.error ?? "Error desconocido")
                     case .unknown:
-                        print("⚠️ AVPlayerItem UNKNOWN")
+                        debugLog("⚠️ AVPlayerItem UNKNOWN")
                     @unknown default:
-                        print("❓ Estado desconocido")
+                        debugLog("❓ Estado desconocido")
                     }
                 }
             }
         }
 
         deinit {
-            print("🧹 Coordinator DEINIT")
+            debugLog("🧹 Coordinator DEINIT")
             player.currentItem?.removeObserver(self, forKeyPath: "status")
         }
     }

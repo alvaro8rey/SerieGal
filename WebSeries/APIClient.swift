@@ -23,15 +23,15 @@ struct APIClient {
         }
 
         // 🔍 LOG REQUEST
-        print("➡️ \(method) \(url.absoluteString)")
+        debugLog("➡️ \(method) \(url.absoluteString)")
         if let token {
             let prefix = String(token.prefix(12))
-            print("🔐 Authorization: Bearer \(prefix)...")
+            debugLog("🔐 Authorization: Bearer \(prefix)...")
         } else {
-            print("🔐 Authorization: none")
+            debugLog("🔐 Authorization: none")
         }
         if let body {
-            print("📤 BODY:", String(data: body, encoding: .utf8) ?? "nil")
+            debugLog("📤 BODY:", String(data: body, encoding: .utf8) ?? "nil")
         }
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -41,8 +41,8 @@ struct APIClient {
         }
 
         // 🔍 LOG RESPONSE
-        print("⬅️ STATUS:", http.statusCode)
-        print("📥 RESPONSE:", String(data: data, encoding: .utf8) ?? "nil")
+        debugLog("⬅️ STATUS:", http.statusCode)
+        debugLog("📥 RESPONSE:", String(data: data, encoding: .utf8) ?? "nil")
 
         if http.statusCode >= 400 {
             let message = String(data: data, encoding: .utf8) ?? "Error servidor"

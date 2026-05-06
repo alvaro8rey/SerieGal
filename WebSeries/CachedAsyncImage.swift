@@ -59,6 +59,7 @@ actor ImageCache {
     private let memory = NSCache<NSString, UIImage>()
     private let cacheDirectory: URL
     private let session: URLSession
+    private var inFlight: [String: Task<UIImage?, Never>] = [:]
 
     init() {
         memory.countLimit = 300
@@ -91,6 +92,10 @@ actor ImageCache {
             return cached
         }
 
+        if let runningTask = inFlight[key] {
+            return await runningTask.value
+        }
+
         let fileURL = cacheDirectory.appendingPathComponent(key).appendingPathExtension("img")
         if let data = try? Data(contentsOf: fileURL),
            let diskImage = UIImage(data: data) {
@@ -98,25 +103,59 @@ actor ImageCache {
             return diskImage
         }
 
-        do {
-            var request = URLRequest(url: url)
-            request.cachePolicy = .returnCacheDataElseLoad
-            request.timeoutInterval = 40
+        let task = Task(priority: .utility) { [session] in
+            do {
+                var request = URLRequest(url: url)
+                request.cachePolicy = .returnCacheDataElseLoad
+                request.timeoutInterval = 40
 
-            let (data, response) = try await session.data(for: request)
+                let (data, response) = try await session.data(for: request)
 
-            guard let http = response as? HTTPURLResponse,
-                  (200...299).contains(http.statusCode),
-                  let downloadedImage = UIImage(data: data) else {
+                guard let http = response as? HTTPURLResponse,
+                      (200...299).contains(http.statusCode),
+                      let downloadedImage = UIImage(data: data) else {
+                    return nil
+                }
+
+                try? data.write(to: fileURL, options: .atomic)
+                return downloadedImage
+            } catch {
                 return nil
             }
-
-            memory.setObject(downloadedImage, forKey: nsKey, cost: data.count)
-            try? data.write(to: fileURL, options: .atomic)
-            return downloadedImage
-        } catch {
-            return nil
         }
+
+        inFlight[key] = task
+        let downloadedImage = await task.value
+        inFlight[key] = nil
+
+        if let downloadedImage {
+            memory.setObject(downloadedImage, forKey: nsKey)
+            return downloadedImage
+        }
+
+        return nil
+    }
+
+    func prefetch(urls: [URL]) {
+        for url in Set(urls) {
+            Task(priority: .utility) {
+                _ = await self.image(for: url)
+            }
+        }
+    }
+
+    func clearMemoryCache() {
+        memory.removeAllObjects()
+    }
+
+    func clearAllCache() {
+        memory.removeAllObjects()
+        try? FileManager.default.removeItem(at: cacheDirectory)
+        try? FileManager.default.createDirectory(
+            at: cacheDirectory,
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
     }
 
     private func cacheKey(for url: URL) -> String {

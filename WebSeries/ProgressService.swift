@@ -30,11 +30,11 @@ final class ProgressService: ObservableObject {
         duration: Double
     ) async {
         guard let token = auth.token else {
-            print("⚠️ saveProgress cancelado: no hay token.")
+            debugLog("⚠️ saveProgress cancelado: no hay token.")
             return
         }
 
-        print("🧭 saveProgress -> series_id=\(seriesId), episode_id=\(episodeId), time=\(Int(time))s, duration=\(Int(duration))s")
+        debugLog("🧭 saveProgress -> series_id=\(seriesId), episode_id=\(episodeId), time=\(Int(time))s, duration=\(Int(duration))s")
 
         var body: [String: Any] = [
             "series_id": seriesId,
@@ -64,13 +64,13 @@ final class ProgressService: ObservableObject {
                 duration: duration
             )
         } catch {
-            print("❌ Error guardando progreso:", error)
+            debugLog("❌ Error guardando progreso:", error)
         }
     }
 
     func loadContinueWatching() async {
         guard let token = auth.token else {
-            print("⚠️ loadContinueWatching cancelado: no hay token.")
+            debugLog("⚠️ loadContinueWatching cancelado: no hay token.")
             return
         }
 
@@ -82,7 +82,7 @@ final class ProgressService: ObservableObject {
 
             let items = try JSONDecoder().decode([ContinueWatchingEntry].self, from: data)
             continueWatching = items
-            print("✅ /continue-watching cargado. Items:", items.count)
+            debugLog("✅ /continue-watching cargado. Items:", items.count)
             for item in items {
                 progressCache[cacheKey(seriesId: item.seriesId, episodeId: item.episodeId)] = ProgressResponse(
                     time: item.time,
@@ -90,7 +90,7 @@ final class ProgressService: ObservableObject {
                 )
             }
         } catch {
-            print("❌ Error cargando continue-watching:", error)
+            debugLog("❌ Error cargando continue-watching:", error)
         }
     }
 
@@ -99,16 +99,16 @@ final class ProgressService: ObservableObject {
         episodeId: String
     ) async -> ProgressResponse? {
         if let cached = progressCache[cacheKey(seriesId: seriesId, episodeId: episodeId)] {
-            print("🧠 getProgress cache hit -> \(seriesId)/\(episodeId)")
+            debugLog("🧠 getProgress cache hit -> \(seriesId)/\(episodeId)")
             return cached
         }
 
         guard let token = auth.token else {
-            print("⚠️ getProgress cancelado: no hay token para \(seriesId)/\(episodeId).")
+            debugLog("⚠️ getProgress cancelado: no hay token para \(seriesId)/\(episodeId).")
             return nil
         }
 
-        print("🧭 getProgress request -> \(seriesId)/\(episodeId)")
+        debugLog("🧭 getProgress request -> \(seriesId)/\(episodeId)")
 
         do {
             let data = try await APIClient.request(

@@ -10,6 +10,7 @@ struct ContentView: View {
 
     @State private var showSearch = false
     @State private var showFavorites = false
+    @State private var hasPrefetchedInitialCovers = false
 
     var body: some View {
         NavigationStack {
@@ -34,7 +35,10 @@ struct ContentView: View {
                 if service.catalog == nil && service.error == nil {
                     await service.load()
                 }
-                await progress.loadContinueWatching()
+                if let catalog = service.catalog, !hasPrefetchedInitialCovers {
+                    hasPrefetchedInitialCovers = true
+                    prefetchInitialCovers(for: catalog)
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .progressUpdated)) { _ in
                 Task {
@@ -585,6 +589,19 @@ struct ContentView: View {
         value
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
+    }
+
+    private func prefetchInitialCovers(for catalog: Catalog) {
+        let movieURLs = (catalog.movies ?? [])
+            .prefix(20)
+            .compactMap { URL(string: ServerConfig.webBaseURL + "/images/\($0.id).jpg") }
+        let seriesURLs = catalog.series
+            .prefix(20)
+            .compactMap { URL(string: ServerConfig.webBaseURL + "/images/\($0.id).jpg") }
+
+        Task(priority: .utility) {
+            await ImageCache.shared.prefetch(urls: movieURLs + seriesURLs)
+        }
     }
 }
 

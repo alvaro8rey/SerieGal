@@ -62,9 +62,9 @@ struct PlayerScreen: View {
         }
         .onAppear {
             if let startAtTime {
-                print("▶️ PlayerScreen abierto -> seriesId=\(seriesId), episodeId=\(episode.id), resume=\(Int(startAtTime))s")
+                debugLog("▶️ PlayerScreen abierto -> seriesId=\(seriesId), episodeId=\(episode.id), resume=\(Int(startAtTime))s")
             } else {
-                print("▶️ PlayerScreen abierto -> seriesId=\(seriesId), episodeId=\(episode.id), resume=inicio")
+                debugLog("▶️ PlayerScreen abierto -> seriesId=\(seriesId), episodeId=\(episode.id), resume=inicio")
             }
         }
         .onDisappear {
@@ -78,7 +78,7 @@ struct PlayerScreen: View {
     // GUARDAR PROGRESO Y SALIR
     // =========================
     private func saveProgressAndDismiss() {
-        print("🛑 Cerrando reproductor. Guardando snapshot final.")
+        debugLog("🛑 Cerrando reproductor. Guardando snapshot final.")
         hasSavedAtClose = true
         saveProgressSnapshotAndNotify()
         dismiss()
@@ -89,7 +89,7 @@ struct PlayerScreen: View {
         let sanitizedDuration = sanitizedDurationValue(for: sanitizedTime)
 
         guard sanitizedTime > 5, sanitizedDuration > 0 else { return }
-        print("💾 Snapshot progreso: t=\(Int(sanitizedTime)) d=\(Int(sanitizedDuration))")
+        debugLog("💾 Snapshot progreso: t=\(Int(sanitizedTime)) d=\(Int(sanitizedDuration))")
 
         Task {
             await progress.saveProgress(
@@ -114,7 +114,7 @@ struct PlayerScreen: View {
         guard sanitizedDuration > 0 else { return }
 
         lastSyncedSecond = currentSecond
-        print("⏱ Sync periódico de progreso en segundo \(currentSecond)")
+        debugLog("⏱ Sync periódico de progreso en segundo \(currentSecond)")
 
         Task {
             await progress.saveProgress(

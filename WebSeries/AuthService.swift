@@ -24,7 +24,7 @@ final class AuthService: ObservableObject {
 
     init() {
         token = UserDefaults.standard.string(forKey: "auth_token")
-        print("🔐 AuthService init. Token guardado:", token == nil ? "no" : "sí")
+        debugLog("🔐 AuthService init. Token guardado:", token == nil ? "no" : "sí")
     }
 
     var isLoggedIn: Bool {
@@ -32,7 +32,7 @@ final class AuthService: ObservableObject {
     }
 
     func login(username: String, password: String) async throws {
-        print("🔐 Intentando login para usuario:", username)
+        debugLog("🔐 Intentando login para usuario:", username)
         let body = try JSONEncoder().encode(LoginRequest(username: username, password: password))
 
         let data = try await APIClient.request(
@@ -43,11 +43,11 @@ final class AuthService: ObservableObject {
 
         let response = try JSONDecoder().decode(LoginResponse.self, from: data)
         token = response.token
-        print("✅ Login correcto. Token actualizado.")
+        debugLog("✅ Login correcto. Token actualizado.")
     }
 
     func register(username: String, password: String) async throws {
-        print("🔐 Intentando registro para usuario:", username)
+        debugLog("🔐 Intentando registro para usuario:", username)
         let body = try JSONEncoder().encode(LoginRequest(username: username, password: password))
 
         let data = try await APIClient.request(
@@ -58,12 +58,12 @@ final class AuthService: ObservableObject {
 
         let response = try JSONDecoder().decode(LoginResponse.self, from: data)
         token = response.token
-        print("✅ Registro correcto. Token actualizado.")
+        debugLog("✅ Registro correcto. Token actualizado.")
     }
 
     func ensureValidSession() async -> Bool {
         guard let token else {
-            print("⚠️ ensureValidSession: no hay token en memoria.")
+            debugLog("⚠️ ensureValidSession: no hay token en memoria.")
             return false
         }
 
@@ -72,17 +72,17 @@ final class AuthService: ObservableObject {
                 endpoint: "/me",
                 token: token
             )
-            print("✅ Sesión válida en /me")
+            debugLog("✅ Sesión válida en /me")
             return true
         } catch {
-            print("❌ Sesión inválida en /me:", error)
+            debugLog("❌ Sesión inválida en /me:", error)
             self.token = nil
             return false
         }
     }
 
     func logout() {
-        print("👋 Logout manual")
+        debugLog("👋 Logout manual")
         token = nil
     }
 }

@@ -15,8 +15,7 @@ final class CatalogService: ObservableObject {
 
         let urlString = ServerConfig.webBaseURL + "/catalog.json"
 
-        print("📡 Intentando cargar catálogo desde:")
-        print(urlString)
+        debugLog("📡 Intentando cargar catálogo desde:", urlString)
 
         guard let url = URL(string: urlString) else {
             error = "URL inválida"
@@ -27,27 +26,21 @@ final class CatalogService: ObservableObject {
             let (data, response) = try await URLSession.shared.data(from: url)
 
             if let http = response as? HTTPURLResponse {
-                print("📥 HTTP status:", http.statusCode)
-            }
-
-            if let raw = String(data: data, encoding: .utf8) {
-                print("📦 JSON recibido:")
-                print(raw)
+                debugLog("📥 HTTP status:", http.statusCode)
             }
 
             let decoder = JSONDecoder()
             let catalog = try decoder.decode(Catalog.self, from: data)
 
-            print("✅ Catálogo decodificado correctamente")
-            print("Series:", catalog.series.count)
-            print("Películas:", catalog.movies?.count ?? 0)
+            debugLog("✅ Catálogo decodificado correctamente")
+            debugLog("Series:", catalog.series.count)
+            debugLog("Películas:", catalog.movies?.count ?? 0)
 
             self.catalog = catalog
             self.error = nil
 
         } catch {
-            print("❌ ERROR cargando catálogo:")
-            print(error)
+            debugLog("❌ ERROR cargando catálogo:", error)
             self.error = error.localizedDescription
         }
     }
