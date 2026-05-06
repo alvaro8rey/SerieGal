@@ -12,9 +12,10 @@ import SwiftUI
 @MainActor
 final class ProgressService: ObservableObject {
 
-    @Published private(set) var allProgress: [ProgressItem] = []
+    @Published private(set) var continueWatching: [ContinueWatchingEntry] = []
 
     private let auth: AuthService
+    private var progressCache: [String: ProgressResponse] = [:]
 
     init(auth: AuthService) {
         self.auth = auth
@@ -23,17 +24,25 @@ final class ProgressService: ObservableObject {
     func saveProgress(
         seriesId: String,
         episodeId: String,
+        episodeTitle: String? = nil,
+        url: String? = nil,
         time: Double,
         duration: Double
     ) async {
         guard let token = auth.token else { return }
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "series_id": seriesId,
             "episode_id": episodeId,
             "time": time,
             "duration": duration
         ]
+        if let episodeTitle {
+            body["episode_title"] = episodeTitle
+        }
+        if let url {
+            body["url"] = url
+        }
 
         do {
             let data = try JSONSerialization.data(withJSONObject: body)
@@ -45,9 +54,7 @@ final class ProgressService: ObservableObject {
                 token: token
             )
 
-            mergeLocalProgress(
-                seriesId: seriesId,
-                episodeId: episodeId,
+            progressCache[cacheKey(seriesId: seriesId, episodeId: episodeId)] = ProgressResponse(
                 time: time,
                 duration: duration
             )
@@ -56,18 +63,25 @@ final class ProgressService: ObservableObject {
         }
     }
 
-    func loadAllProgress() async {
+    func loadContinueWatching() async {
         guard let token = auth.token else { return }
 
         do {
             let data = try await APIClient.request(
-                endpoint: "/progress/all",
+                endpoint: "/continue-watching",
                 token: token
             )
 
-            allProgress = try decodeProgressItems(from: data)
+            let items = try JSONDecoder().decode([ContinueWatchingEntry].self, from: data)
+            continueWatching = items
+            for item in items {
+                progressCache[cacheKey(seriesId: item.seriesId, episodeId: item.episodeId)] = ProgressResponse(
+                    time: item.time,
+                    duration: item.duration
+                )
+            }
         } catch {
-            print("❌ Error cargando progreso global:", error)
+            print("❌ Error cargando continue-watching:", error)
         }
     }
 
@@ -75,17 +89,8 @@ final class ProgressService: ObservableObject {
         seriesId: String,
         episodeId: String
     ) async -> ProgressResponse? {
-
-        if let cached = allProgress.first(where: { item in
-            item.seriesId == seriesId && item.episodeId == episodeId
-        }) {
-            return ProgressResponse(time: cached.time, duration: cached.duration)
-        }
-
-        if let cachedByEpisode = allProgress.first(where: { item in
-            item.episodeId == episodeId
-        }) {
-            return ProgressResponse(time: cachedByEpisode.time, duration: cachedByEpisode.duration)
+        if let cached = progressCache[cacheKey(seriesId: seriesId, episodeId: episodeId)] {
+            return cached
         }
 
         guard let token = auth.token else { return nil }
@@ -97,70 +102,15 @@ final class ProgressService: ObservableObject {
             )
 
             let decoded = try JSONDecoder().decode(ProgressResponse.self, from: data)
-
-            mergeLocalProgress(
-                seriesId: seriesId,
-                episodeId: episodeId,
-                time: decoded.time,
-                duration: decoded.duration
-            )
-
+            progressCache[cacheKey(seriesId: seriesId, episodeId: episodeId)] = decoded
             return decoded
         } catch {
             return nil
         }
     }
 
-    private func mergeLocalProgress(
-        seriesId: String,
-        episodeId: String,
-        time: Double,
-        duration: Double
-    ) {
-        let updated = ProgressItem(
-            seriesId: seriesId,
-            episodeId: episodeId,
-            time: time,
-            duration: duration,
-            updatedAt: nil
-        )
-
-        if let index = allProgress.firstIndex(where: { item in
-            item.seriesId == seriesId && item.episodeId == episodeId
-        }) {
-            allProgress[index] = updated
-        } else {
-            allProgress.append(updated)
-        }
-    }
-
-    private func decodeProgressItems(from data: Data) throws -> [ProgressItem] {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        if let direct = try? decoder.decode([ProgressItem].self, from: data) {
-            return direct
-        }
-
-        if let wrapped = try? decoder.decode(ProgressEnvelope.self, from: data) {
-            return wrapped.items
-        }
-
-        let json = try JSONSerialization.jsonObject(with: data)
-
-        if let array = json as? [[String: Any]] {
-            return array.compactMap(ProgressItem.init(dictionary:))
-        }
-
-        if let dict = json as? [String: Any] {
-            for key in ["progress", "items", "data", "results"] {
-                if let array = dict[key] as? [[String: Any]] {
-                    return array.compactMap(ProgressItem.init(dictionary:))
-                }
-            }
-        }
-
-        return []
+    private func cacheKey(seriesId: String, episodeId: String) -> String {
+        "\(seriesId)|\(episodeId)"
     }
 }
 
@@ -198,12 +148,13 @@ struct ProgressResponse: Decodable {
     }
 }
 
-struct ProgressItem: Decodable, Identifiable {
+struct ContinueWatchingEntry: Decodable, Identifiable {
     let seriesId: String
     let episodeId: String
+    let episodeTitle: String?
+    let url: String?
     let time: Double
     let duration: Double
-    let updatedAt: Date?
 
     var id: String {
         "\(seriesId)|\(episodeId)"
@@ -217,23 +168,10 @@ struct ProgressItem: Decodable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case seriesId
         case episodeId
+        case episodeTitle
+        case url
         case time
         case duration
-        case updatedAt
-    }
-
-    init(
-        seriesId: String,
-        episodeId: String,
-        time: Double,
-        duration: Double,
-        updatedAt: Date?
-    ) {
-        self.seriesId = seriesId
-        self.episodeId = episodeId
-        self.time = time
-        self.duration = duration
-        self.updatedAt = updatedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -268,6 +206,8 @@ struct ProgressItem: Decodable, Identifiable {
 
         let seriesId = decodeString(["series_id", "seriesId", "series"])
         let episodeId = decodeString(["episode_id", "episodeId", "episode"])
+        let episodeTitle = decodeString(["episode_title", "episodeTitle", "title"])
+        let url = decodeString(["url", "episode_url"])
         let time = decodeDouble(["time", "current_time", "position"]) ?? 0
         let duration = decodeDouble(["duration", "total_duration"]) ?? 0
 
@@ -282,92 +222,10 @@ struct ProgressItem: Decodable, Identifiable {
 
         self.seriesId = seriesId
         self.episodeId = episodeId
+        self.episodeTitle = episodeTitle
+        self.url = url
         self.time = time
         self.duration = duration
-
-        if let updatedString = decodeString(["updated_at", "updatedAt", "date"]) {
-            let iso = ISO8601DateFormatter()
-            self.updatedAt = iso.date(from: updatedString)
-        } else {
-            self.updatedAt = nil
-        }
-    }
-
-    init?(dictionary: [String: Any]) {
-        let possibleSeries = ["series_id", "seriesId", "series"]
-        let possibleEpisode = ["episode_id", "episodeId", "episode"]
-        let possibleTime = ["time", "current_time", "position"]
-        let possibleDuration = ["duration", "total_duration"]
-        let possibleUpdated = ["updated_at", "updatedAt", "date"]
-
-        func readString(_ keys: [String]) -> String? {
-            for key in keys {
-                if let value = dictionary[key] as? String, !value.isEmpty {
-                    return value
-                }
-            }
-            return nil
-        }
-
-        func readDouble(_ keys: [String]) -> Double? {
-            for key in keys {
-                if let value = dictionary[key] as? Double {
-                    return value
-                }
-                if let value = dictionary[key] as? Int {
-                    return Double(value)
-                }
-                if let value = dictionary[key] as? String, let number = Double(value) {
-                    return number
-                }
-            }
-            return nil
-        }
-
-        guard let seriesId = readString(possibleSeries),
-              let episodeId = readString(possibleEpisode) else {
-            return nil
-        }
-
-        self.seriesId = seriesId
-        self.episodeId = episodeId
-        self.time = readDouble(possibleTime) ?? 0
-        self.duration = readDouble(possibleDuration) ?? 0
-
-        if let dateValue = readString(possibleUpdated) {
-            let iso = ISO8601DateFormatter()
-            self.updatedAt = iso.date(from: dateValue)
-        } else {
-            self.updatedAt = nil
-        }
-    }
-}
-
-private struct ProgressEnvelope: Decodable {
-    let items: [ProgressItem]
-
-    enum CodingKeys: String, CodingKey {
-        case progress
-        case items
-        case data
-        case results
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        if let progress = try? container.decode([ProgressItem].self, forKey: .progress) {
-            items = progress
-            return
-        }
-        if let values = try? container.decode([ProgressItem].self, forKey: .items) {
-            items = values
-            return
-        }
-        if let data = try? container.decode([ProgressItem].self, forKey: .data) {
-            items = data
-            return
-        }
-        items = (try? container.decode([ProgressItem].self, forKey: .results)) ?? []
     }
 }
 

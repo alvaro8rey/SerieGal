@@ -77,6 +77,8 @@ struct PlayerScreen: View {
                 await progress.saveProgress(
                     seriesId: seriesId,
                     episodeId: episode.id,
+                    episodeTitle: episode.title,
+                    url: episode.url,
                     time: currentTime,
                     duration: duration
                 )

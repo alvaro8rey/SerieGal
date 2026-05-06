@@ -22,7 +22,7 @@ struct RootView: View {
                     .environmentObject(progress)
                     .task {
                         async let favoritesTask: Void = favorites.loadFavorites()
-                        async let progressTask: Void = progress.loadAllProgress()
+                        async let progressTask: Void = progress.loadContinueWatching()
                         _ = await (favoritesTask, progressTask)
                     }
             } else {
