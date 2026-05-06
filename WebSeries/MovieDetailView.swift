@@ -3,8 +3,12 @@ import SwiftUI
 struct MovieDetailView: View {
 
     @EnvironmentObject var favorites: FavoritesService
+    @EnvironmentObject var progress: ProgressService
 
     let movie: Movie
+    @State private var pendingPlayback: MoviePlaybackRequest?
+    @State private var expandedPlayOptions = false
+    @State private var savedProgress: ProgressResponse?
 
     var body: some View {
         ScrollView {
@@ -21,15 +25,8 @@ struct MovieDetailView: View {
                     }
 
                     HStack(spacing: 10) {
-                        NavigationLink {
-                            PlayerScreen(
-                                episode: Episode(
-                                    id: movie.id,
-                                    title: movie.title,
-                                    url: movie.url
-                                ),
-                                seriesId: movie.id
-                            )
+                        Button {
+                            handlePlayTap()
                         } label: {
                             Label("Reproducir", systemImage: "play.fill")
                                 .font(.subheadline.weight(.bold))
@@ -45,6 +42,7 @@ struct MovieDetailView: View {
                                 .foregroundColor(.white)
                                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
+                        .buttonStyle(.plain)
 
                         Button {
                             Task {
@@ -57,6 +55,53 @@ struct MovieDetailView: View {
                                 .frame(width: 48, height: 48)
                                 .background(Color.white.opacity(0.08))
                                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                    }
+
+                    if expandedPlayOptions, let savedProgress {
+                        Divider()
+                            .overlay(Color.white.opacity(0.1))
+
+                        Text("Progreso guardado en \(formattedTime(savedProgress.time))")
+                            .font(.caption)
+                            .foregroundColor(.serieGalSecondary)
+
+                        HStack(spacing: 10) {
+                            Button {
+                                startPlayback(startAt: savedProgress.time)
+                            } label: {
+                                Label("Continuar viendo", systemImage: "play.fill")
+                                    .font(.subheadline.weight(.bold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        LinearGradient(
+                                            colors: [.serieGalBlue, .serieGalViolet],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .foregroundColor(.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+
+                            Button {
+                                startPlayback(startAt: nil)
+                            } label: {
+                                Text("Ver desde el inicio")
+                                    .font(.subheadline.weight(.semibold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 10)
+                                    .background(Color.white.opacity(0.05))
+                                    .foregroundColor(.serieGalText)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
 
@@ -89,6 +134,13 @@ struct MovieDetailView: View {
             .ignoresSafeArea()
         )
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $pendingPlayback) { playback in
+            PlayerScreen(
+                episode: playback.episode,
+                seriesId: playback.seriesId,
+                startAtTime: playback.startAt
+            )
+        }
     }
 
     private var hero: some View {
@@ -156,5 +208,71 @@ struct MovieDetailView: View {
         .padding(.vertical, 7)
         .background(Color.serieGalSurface)
         .clipShape(Capsule())
+    }
+
+    private func handlePlayTap() {
+        Task {
+            let progressData = await progress.getProgress(
+                seriesId: movie.id,
+                episodeId: movie.id
+            )
+
+            await MainActor.run {
+                guard let progressData, shouldOfferResume(progressData) else {
+                    startPlayback(startAt: nil)
+                    return
+                }
+
+                savedProgress = progressData
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    expandedPlayOptions.toggle()
+                }
+            }
+        }
+    }
+
+    private func startPlayback(startAt: Double?) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            expandedPlayOptions = false
+        }
+        pendingPlayback = MoviePlaybackRequest(
+            episode: Episode(
+                id: movie.id,
+                title: movie.title,
+                url: movie.url
+            ),
+            seriesId: movie.id,
+            startAt: startAt
+        )
+    }
+
+    private func shouldOfferResume(_ progress: ProgressResponse) -> Bool {
+        progress.time > 5 && progress.duration > 0 && progress.time < (progress.duration - 15)
+    }
+
+    private func formattedTime(_ time: Double) -> String {
+        let totalSeconds = Int(max(time, 0))
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        }
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+}
+
+private struct MoviePlaybackRequest: Identifiable, Hashable {
+    let id = UUID()
+    let episode: Episode
+    let seriesId: String
+    let startAt: Double?
+
+    static func == (lhs: MoviePlaybackRequest, rhs: MoviePlaybackRequest) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 }
