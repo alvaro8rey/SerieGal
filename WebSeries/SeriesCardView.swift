@@ -38,7 +38,7 @@ struct SeriesCardView: View {
                     .foregroundColor(.white)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52, alignment: .bottomLeading)
                     .minimumScaleFactor(0.9)
 
                 Text("\(serie.normalizedSeasons.count) temporadas")

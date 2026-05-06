@@ -38,7 +38,7 @@ struct MovieCardView: View {
                     .foregroundColor(.white)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52, alignment: .topLeading)
+                    .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52, alignment: .bottomLeading)
 
                 Text(movie.year)
                     .font(.caption.weight(.semibold))
