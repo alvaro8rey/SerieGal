@@ -236,28 +236,7 @@ struct SeriesDetailView: View {
 
             LazyVStack(spacing: 12) {
                 ForEach(Array(season.episodes.enumerated()), id: \.element.id) { index, episode in
-                    let progressData = progressDataForEpisode(episode)
-                    EpisodeRowView(
-                        seriesId: serie.id,
-                        episode: episode,
-                        index: index + 1,
-                        serieTitle: serie.title,
-                        progressData: progressData,
-                        isCompleted: isEpisodeCompleted(episode: episode, progressData: progressData),
-                        isExpanded: expandedEpisodeID == episode.id,
-                        resumeProgress: resumeProgressByEpisode[episode.id],
-                        onPrimaryTap: {
-                            handleEpisodeTap(episode)
-                        },
-                        onContinueTap: {
-                            if let savedProgress = resumeProgressByEpisode[episode.id] {
-                                startPlayback(for: episode, startAt: savedProgress.time)
-                            }
-                        },
-                        onRestartTap: {
-                            startPlayback(for: episode, startAt: nil)
-                        }
-                    )
+                    episodeRow(episode: episode, index: index)
                 }
             }
         }
@@ -269,6 +248,33 @@ struct SeriesDetailView: View {
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
         .padding(.horizontal)
+    }
+
+    private func episodeRow(episode: Episode, index: Int) -> some View {
+        let rowProgress = progressDataForEpisode(episode)
+        let rowCompleted = isEpisodeCompleted(episode: episode, progressData: rowProgress)
+
+        return EpisodeRowView(
+            seriesId: serie.id,
+            episode: episode,
+            index: index + 1,
+            serieTitle: serie.title,
+            progressData: rowProgress,
+            isCompleted: rowCompleted,
+            isExpanded: expandedEpisodeID == episode.id,
+            resumeProgress: resumeProgressByEpisode[episode.id],
+            onPrimaryTap: {
+                handleEpisodeTap(episode)
+            },
+            onContinueTap: {
+                if let savedProgress = resumeProgressByEpisode[episode.id] {
+                    startPlayback(for: episode, startAt: savedProgress.time)
+                }
+            },
+            onRestartTap: {
+                startPlayback(for: episode, startAt: nil)
+            }
+        )
     }
 
     private func handleEpisodeTap(_ episode: Episode) {
