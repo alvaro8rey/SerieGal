@@ -343,11 +343,19 @@ struct SeriesDetailView: View {
     }
 }
 
-private struct EpisodePlaybackRequest: Identifiable {
+private struct EpisodePlaybackRequest: Identifiable, Hashable {
     let id = UUID()
     let episode: Episode
     let seriesId: String
     let startAt: Double?
+
+    static func == (lhs: EpisodePlaybackRequest, rhs: EpisodePlaybackRequest) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
 }
 
 private struct EpisodeResumeChoice {
