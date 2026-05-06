@@ -259,10 +259,10 @@ struct SeriesDetailView: View {
             episode: episode,
             index: index + 1,
             serieTitle: serie.title,
-            progressData: rowProgress,
-            isCompletedBySeriesState: rowCompleted,
             isExpanded: expandedEpisodeID == episode.id,
             resumeProgress: resumeProgressByEpisode[episode.id],
+            progressData: rowProgress,
+            isCompletedBySeriesState: rowCompleted,
             onPrimaryTap: {
                 handleEpisodeTap(episode)
             },
