@@ -228,9 +228,10 @@ struct ContentView: View {
         LinearGradient(
             colors: [
                 Color.serieGalBackground,
-                Color.serieGalSurface
+                Color.serieGalSurface,
+                Color.serieGalBackground
             ],
-            startPoint: .top,
+            startPoint: .topLeading,
             endPoint: .bottom
         )
     }
@@ -273,7 +274,16 @@ struct ContentView: View {
                     .font(.caption.weight(.bold))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(Color.serieGalBlue.opacity(0.16))
+                    .background(
+                        LinearGradient(
+                            colors: [
+                                Color.serieGalBlue.opacity(0.22),
+                                Color.serieGalViolet.opacity(0.22)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
                     .clipShape(Capsule())
             }
         }
@@ -383,10 +393,11 @@ struct ContentView: View {
 
             LinearGradient(
                 colors: [
-                    .clear,
+                    Color.serieGalBlue.opacity(0.15),
+                    Color.serieGalViolet.opacity(0.2),
                     Color.black.opacity(0.85)
                 ],
-                startPoint: .top,
+                startPoint: .topLeading,
                 endPoint: .bottom
             )
 
@@ -396,7 +407,13 @@ struct ContentView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Color.serieGalBlue.opacity(0.9))
+                    .background(
+                        LinearGradient(
+                            colors: [.serieGalBlue, .serieGalViolet],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
                     .clipShape(Capsule())
 
                 Text(title)

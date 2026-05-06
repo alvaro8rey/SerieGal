@@ -13,26 +13,14 @@ struct EpisodeRowView: View {
     @State private var duration: Double = 0
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                episodeBadge
 
-            HStack(spacing: 14) {
-
-                // PLAY / CHECK
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.serieGalBlue)
-                        .frame(width: 90, height: 60)
-
-                    Image(systemName: isCompleted ? "checkmark" : "play.fill")
-                        .foregroundColor(.white)
-                        .font(.title3)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-
+                VStack(alignment: .leading, spacing: 6) {
                     Text("Episodio \(index)")
-                        .font(.caption)
-                        .foregroundColor(.serieGalSecondary)
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.serieGalTertiary)
 
                     Text(
                         formattedEpisodeTitle(
@@ -44,32 +32,68 @@ struct EpisodeRowView: View {
                     .font(.headline)
                     .foregroundColor(.serieGalText)
                     .lineLimit(2)
-                    .onReceive(NotificationCenter.default.publisher(for: .progressUpdated)) { _ in
-                        Task {
-                            await loadProgress()
-                        }
-                    }
                 }
 
                 Spacer()
+
+                Image(systemName: isCompleted ? "checkmark.seal.fill" : "play.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(isCompleted ? Color.green : Color.serieGalBlue)
             }
 
-            // =========================
-            // BARRA DE PROGRESO
-            // =========================
             if duration > 0 {
-                ProgressView(value: currentTime / duration)
-                    .tint(.serieGalBlue)
+                VStack(alignment: .leading, spacing: 8) {
+                    GeometryReader { proxy in
+                        let ratio = min(max(currentTime / duration, 0), 1)
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Color.white.opacity(0.12))
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.serieGalBlue, .serieGalViolet, .serieGalMagenta],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: proxy.size.width * ratio)
+                        }
+                    }
+                    .frame(height: 6)
+
+                    Text(progressLabel)
+                        .font(.caption)
+                        .foregroundColor(.serieGalSecondary)
+                }
+            } else {
+                Text("Sin progreso guardado")
+                    .font(.caption)
+                    .foregroundColor(.serieGalSecondary)
             }
         }
-        .padding(14)
+        .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color.serieGalBackground)
-                .shadow(color: .black.opacity(0.1), radius: 6)
+            LinearGradient(
+                colors: [
+                    Color.serieGalCardBackground,
+                    Color.serieGalSurface
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
         .task {
             await loadProgress()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .progressUpdated)) { _ in
+            Task {
+                await loadProgress()
+            }
         }
     }
 
@@ -85,5 +109,32 @@ struct EpisodeRowView: View {
 
     private var isCompleted: Bool {
         duration > 0 && currentTime / duration > 0.9
+    }
+
+    private var progressLabel: String {
+        let ratio = currentTime / duration
+        if ratio > 0.9 {
+            return "Completado"
+        }
+        let value = Int((ratio * 100).rounded())
+        return "Visto \(value)%"
+    }
+
+    private var episodeBadge: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [.serieGalBlue, .serieGalViolet],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 44, height: 44)
+
+            Text("\(index)")
+                .font(.subheadline.weight(.bold))
+                .foregroundColor(.white)
+        }
     }
 }

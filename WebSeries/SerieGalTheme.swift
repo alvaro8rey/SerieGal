@@ -9,11 +9,25 @@ extension Color {
         blue: 1.00
     )
 
+    /// Acento secundario para gradientes y CTAs.
+    static let serieGalViolet = Color(
+        red: 0.50,
+        green: 0.40,
+        blue: 1.00
+    )
+
+    /// Acento cálido para highlights visuales.
+    static let serieGalMagenta = Color(
+        red: 0.95,
+        green: 0.35,
+        blue: 0.72
+    )
+
     /// Fondo principal (adaptativo real)
     static let serieGalBackground = Color(
         uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-            ? UIColor.black
+            ? UIColor(red: 0.03, green: 0.04, blue: 0.08, alpha: 1)
             : UIColor.systemBackground
         }
     )
@@ -40,7 +54,7 @@ extension Color {
     static let serieGalSurface = Color(
         uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.10, green: 0.11, blue: 0.16, alpha: 1)
+            ? UIColor(red: 0.11, green: 0.12, blue: 0.19, alpha: 1)
             : UIColor(red: 0.95, green: 0.96, blue: 0.99, alpha: 1)
         }
     )
@@ -49,7 +63,7 @@ extension Color {
     static let serieGalCardBackground = Color(
         uiColor: UIColor { trait in
             trait.userInterfaceStyle == .dark
-            ? UIColor(red: 0.14, green: 0.15, blue: 0.21, alpha: 1)
+            ? UIColor(red: 0.15, green: 0.16, blue: 0.24, alpha: 1)
             : UIColor.white
         }
     )
