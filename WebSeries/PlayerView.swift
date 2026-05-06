@@ -34,7 +34,16 @@ struct PlayerView: UIViewControllerRepresentable {
                 queue: .main
             ) { time in
                 currentTime = time.seconds
-                duration = player.currentItem?.duration.seconds ?? 0
+
+                let rawDuration = player.currentItem?.duration.seconds ?? 0
+                if rawDuration.isFinite && rawDuration > 0 {
+                    duration = rawDuration
+                } else if let lastRange = player.currentItem?.seekableTimeRanges.last?.timeRangeValue {
+                    let seekableEnd = lastRange.start.seconds + lastRange.duration.seconds
+                    if seekableEnd.isFinite && seekableEnd > 0 {
+                        duration = seekableEnd
+                    }
+                }
             }
 
             controller.player = player

@@ -12,6 +12,8 @@ struct PlayerScreen: View {
     // ⏱ Progreso
     @State private var currentTime: Double = 0
     @State private var duration: Double = 0
+    @State private var lastSyncedSecond: Int = -1
+    @State private var hasSavedAtClose = false
 
     init(episode: Episode, seriesId: String? = nil) {
         self.episode = episode
@@ -66,27 +68,72 @@ struct PlayerScreen: View {
         }
         .toolbar(.hidden, for: .navigationBar)
         .background(Color.black)
+        .onChange(of: currentTime) { _, newValue in
+            syncPeriodicProgress(for: newValue)
+        }
+        .onDisappear {
+            if !hasSavedAtClose {
+                saveProgressSnapshotAndNotify()
+            }
+        }
     }
 
     // =========================
     // GUARDAR PROGRESO Y SALIR
     // =========================
     private func saveProgressAndDismiss() {
-        Task {
-            if duration > 0 {
-                await progress.saveProgress(
-                    seriesId: seriesId,
-                    episodeId: episode.id,
-                    episodeTitle: episode.title,
-                    url: episode.url,
-                    time: currentTime,
-                    duration: duration
-                )
+        hasSavedAtClose = true
+        saveProgressSnapshotAndNotify()
+        dismiss()
+    }
 
-                // 🔔 Avisar a toda la app
-                NotificationCenter.default.post(name: .progressUpdated, object: nil)
-            }
-            dismiss()
+    private func saveProgressSnapshotAndNotify() {
+        let sanitizedTime = currentTime.isFinite ? max(currentTime, 0) : 0
+        let sanitizedDuration = sanitizedDurationValue(for: sanitizedTime)
+
+        guard sanitizedTime > 1, sanitizedDuration > 0 else { return }
+
+        Task {
+            await progress.saveProgress(
+                seriesId: seriesId,
+                episodeId: episode.id,
+                episodeTitle: episode.title,
+                url: episode.url,
+                time: sanitizedTime,
+                duration: sanitizedDuration
+            )
+            NotificationCenter.default.post(name: .progressUpdated, object: nil)
         }
+    }
+
+    private func syncPeriodicProgress(for newTime: Double) {
+        guard newTime.isFinite, newTime > 1 else { return }
+
+        let currentSecond = Int(newTime.rounded(.down))
+        guard currentSecond % 10 == 0, currentSecond != lastSyncedSecond else { return }
+
+        let sanitizedDuration = sanitizedDurationValue(for: newTime)
+        guard sanitizedDuration > 0 else { return }
+
+        lastSyncedSecond = currentSecond
+
+        Task {
+            await progress.saveProgress(
+                seriesId: seriesId,
+                episodeId: episode.id,
+                episodeTitle: episode.title,
+                url: episode.url,
+                time: newTime,
+                duration: sanitizedDuration
+            )
+        }
+    }
+
+    private func sanitizedDurationValue(for time: Double) -> Double {
+        if duration.isFinite && duration > 0 {
+            return duration
+        }
+        // Fallback para streams HLS donde AVPlayer tarda en exponer la duración real.
+        return time + 120
     }
 }
