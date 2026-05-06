@@ -21,7 +21,7 @@ struct PlayerScreen: View {
     }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
+        ZStack {
 
             // =========================
             // REPRODUCTOR
@@ -51,20 +51,6 @@ struct PlayerScreen: View {
                     }
             )
 
-            // =========================
-            // BOTÓN CERRAR
-            // =========================
-            Button {
-                saveProgressAndDismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .foregroundColor(.white)
-                    .padding(12)
-                    .background(Color.black.opacity(0.6))
-                    .clipShape(Circle())
-            }
-            .padding(.top, 50)
-            .padding(.leading, 20)
         }
         .toolbar(.hidden, for: .navigationBar)
         .background(Color.black)
