@@ -32,11 +32,13 @@ struct MovieCardView: View {
                 endPoint: .bottom
             )
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(movie.title)
                     .font(.headline.weight(.bold))
                     .foregroundColor(.white)
                     .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, minHeight: 52, maxHeight: 52, alignment: .topLeading)
 
                 Text(movie.year)
                     .font(.caption.weight(.semibold))
