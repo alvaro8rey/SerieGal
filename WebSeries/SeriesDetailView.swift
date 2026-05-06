@@ -50,6 +50,14 @@ struct SeriesDetailView: View {
                 selectedSeasonID = seasons.first?.id
             }
         }
+        .task(id: serie.id) {
+            await loadSeriesProgress()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .progressUpdated)) { _ in
+            Task {
+                await loadSeriesProgress()
+            }
+        }
         .navigationDestination(item: $pendingPlayback) { playback in
             PlayerScreen(
                 episode: playback.episode,
@@ -228,11 +236,14 @@ struct SeriesDetailView: View {
 
             LazyVStack(spacing: 12) {
                 ForEach(Array(season.episodes.enumerated()), id: \.element.id) { index, episode in
+                    let progressData = progressDataForEpisode(episode)
                     EpisodeRowView(
                         seriesId: serie.id,
                         episode: episode,
                         index: index + 1,
                         serieTitle: serie.title,
+                        progressData: progressData,
+                        isCompleted: isEpisodeCompleted(episode: episode, progressData: progressData),
                         isExpanded: expandedEpisodeID == episode.id,
                         resumeProgress: resumeProgressByEpisode[episode.id],
                         onPrimaryTap: {
@@ -261,6 +272,15 @@ struct SeriesDetailView: View {
     }
 
     private func handleEpisodeTap(_ episode: Episode) {
+        if let cached = progress.cachedProgress(seriesId: serie.id, episodeId: episode.id),
+           shouldOfferResume(cached) {
+            resumeProgressByEpisode[episode.id] = cached
+            withAnimation(.easeInOut(duration: 0.2)) {
+                expandedEpisodeID = (expandedEpisodeID == episode.id) ? nil : episode.id
+            }
+            return
+        }
+
         Task {
             let progressData = await progress.getProgress(
                 seriesId: serie.id,
@@ -290,6 +310,27 @@ struct SeriesDetailView: View {
             seriesId: serie.id,
             startAt: startAt
         )
+    }
+
+    private func loadSeriesProgress() async {
+        await progress.loadSeriesCompletedEpisodes(seriesId: serie.id)
+    }
+
+    private func progressDataForEpisode(_ episode: Episode) -> ProgressResponse? {
+        if let expanded = resumeProgressByEpisode[episode.id] {
+            return expanded
+        }
+        return progress.cachedProgress(seriesId: serie.id, episodeId: episode.id)
+    }
+
+    private func isEpisodeCompleted(episode: Episode, progressData: ProgressResponse?) -> Bool {
+        if let progressData,
+           progressData.duration > 0,
+           (progressData.duration - progressData.time) < 30 {
+            return true
+        }
+
+        return progress.isEpisodeCompleted(seriesId: serie.id, episodeId: episode.id)
     }
 
     private var totalEpisodes: Int {

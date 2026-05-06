@@ -103,7 +103,7 @@ actor ImageCache {
             return diskImage
         }
 
-        let task = Task(priority: .utility) { [session] in
+        let task: Task<UIImage?, Never> = Task(priority: .utility) { [session] in
             do {
                 var request = URLRequest(url: url)
                 request.cachePolicy = .returnCacheDataElseLoad

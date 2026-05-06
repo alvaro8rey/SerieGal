@@ -8,14 +8,11 @@ struct EpisodeRowView: View {
     let serieTitle: String
     let isExpanded: Bool
     let resumeProgress: ProgressResponse?
+    let progressData: ProgressResponse?
+    let isCompletedBySeriesState: Bool
     let onPrimaryTap: () -> Void
     let onContinueTap: (() -> Void)?
     let onRestartTap: (() -> Void)?
-
-    @EnvironmentObject var progress: ProgressService
-
-    @State private var currentTime: Double = 0
-    @State private var duration: Double = 0
 
     init(
         seriesId: String,
@@ -24,6 +21,8 @@ struct EpisodeRowView: View {
         serieTitle: String,
         isExpanded: Bool = false,
         resumeProgress: ProgressResponse? = nil,
+        progressData: ProgressResponse? = nil,
+        isCompletedBySeriesState: Bool = false,
         onPrimaryTap: @escaping () -> Void = {},
         onContinueTap: (() -> Void)? = nil,
         onRestartTap: (() -> Void)? = nil
@@ -34,6 +33,8 @@ struct EpisodeRowView: View {
         self.serieTitle = serieTitle
         self.isExpanded = isExpanded
         self.resumeProgress = resumeProgress
+        self.progressData = progressData
+        self.isCompletedBySeriesState = isCompletedBySeriesState
         self.onPrimaryTap = onPrimaryTap
         self.onContinueTap = onContinueTap
         self.onRestartTap = onRestartTap
@@ -113,14 +114,6 @@ struct EpisodeRowView: View {
                 )
         )
         .animation(.easeInOut(duration: 0.2), value: isExpanded)
-        .task {
-            await loadProgress()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .progressUpdated)) { _ in
-            Task {
-                await loadProgress()
-            }
-        }
     }
 
     private var episodeMainContent: some View {
@@ -152,10 +145,10 @@ struct EpisodeRowView: View {
                     .foregroundStyle(isCompleted ? Color.green : Color.serieGalBlue)
             }
 
-            if duration > 0 {
+            if duration > 0 || isCompleted {
                 VStack(alignment: .leading, spacing: 8) {
                     GeometryReader { proxy in
-                        let ratio = min(max(currentTime / duration, 0), 1)
+                        let ratio = progressRatio
                         ZStack(alignment: .leading) {
                             Capsule()
                                 .fill(Color.white.opacity(0.12))
@@ -184,22 +177,28 @@ struct EpisodeRowView: View {
         }
     }
 
-    private func loadProgress() async {
-        if let data = await progress.getProgress(
-            seriesId: seriesId,
-            episodeId: episode.id
-        ) {
-            currentTime = data.time
-            duration = data.duration
-        }
+    private var isCompleted: Bool {
+        isCompletedBySeriesState || (duration > 0 && currentTime / duration > 0.9)
     }
 
-    private var isCompleted: Bool {
-        duration > 0 && currentTime / duration > 0.9
+    private var currentTime: Double {
+        progressData?.time ?? 0
+    }
+
+    private var duration: Double {
+        progressData?.duration ?? 0
+    }
+
+    private var progressRatio: Double {
+        if isCompleted {
+            return 1
+        }
+        guard duration > 0 else { return 0 }
+        return min(max(currentTime / duration, 0), 1)
     }
 
     private var progressLabel: String {
-        let ratio = currentTime / duration
+        let ratio = progressRatio
         if ratio > 0.9 {
             return "Completado"
         }

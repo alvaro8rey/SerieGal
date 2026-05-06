@@ -13,6 +13,7 @@ import SwiftUI
 final class ProgressService: ObservableObject {
 
     @Published private(set) var continueWatching: [ContinueWatchingEntry] = []
+    @Published private(set) var completedEpisodesBySeries: [String: Set<String>] = [:]
 
     private let auth: AuthService
     private var progressCache: [String: ProgressResponse] = [:]
@@ -63,6 +64,12 @@ final class ProgressService: ObservableObject {
                 time: time,
                 duration: duration
             )
+
+            if duration > 0, (duration - time) < 30 {
+                var completed = completedEpisodesBySeries[seriesId] ?? []
+                completed.insert(episodeId)
+                completedEpisodesBySeries[seriesId] = completed
+            }
         } catch {
             debugLog("❌ Error guardando progreso:", error)
         }
@@ -118,10 +125,45 @@ final class ProgressService: ObservableObject {
 
             let decoded = try JSONDecoder().decode(ProgressResponse.self, from: data)
             progressCache[cacheKey(seriesId: seriesId, episodeId: episodeId)] = decoded
+
+            if decoded.duration > 0, (decoded.duration - decoded.time) < 30 {
+                var completed = completedEpisodesBySeries[seriesId] ?? []
+                completed.insert(episodeId)
+                completedEpisodesBySeries[seriesId] = completed
+            }
+
             return decoded
         } catch {
             return nil
         }
+    }
+
+    func loadSeriesCompletedEpisodes(seriesId: String) async {
+        guard let token = auth.token else {
+            debugLog("⚠️ loadSeriesCompletedEpisodes cancelado: no hay token.")
+            return
+        }
+
+        do {
+            let data = try await APIClient.request(
+                endpoint: "/series-progress/\(seriesId)",
+                token: token
+            )
+
+            let ids = try JSONDecoder().decode([String].self, from: data)
+            completedEpisodesBySeries[seriesId] = Set(ids)
+            debugLog("✅ /series-progress cargado para \(seriesId):", ids.count)
+        } catch {
+            debugLog("❌ Error cargando /series-progress para \(seriesId):", error)
+        }
+    }
+
+    func cachedProgress(seriesId: String, episodeId: String) -> ProgressResponse? {
+        progressCache[cacheKey(seriesId: seriesId, episodeId: episodeId)]
+    }
+
+    func isEpisodeCompleted(seriesId: String, episodeId: String) -> Bool {
+        completedEpisodesBySeries[seriesId]?.contains(episodeId) ?? false
     }
 
     private func cacheKey(seriesId: String, episodeId: String) -> String {
