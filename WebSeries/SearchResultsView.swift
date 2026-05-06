@@ -34,7 +34,8 @@ struct SearchResultsView: View {
                                     id: movie.id,
                                     title: movie.title,
                                     url: movie.url
-                                )
+                                ),
+                                seriesId: movie.id
                             )
                         } label: {
                             MovieCardView(movie: movie)

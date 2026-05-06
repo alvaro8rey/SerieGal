@@ -3,6 +3,7 @@ import SwiftUI
 struct PlayerScreen: View {
 
     let episode: Episode
+    let seriesId: String
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var progress: ProgressService
 
@@ -11,6 +12,11 @@ struct PlayerScreen: View {
     // ⏱ Progreso
     @State private var currentTime: Double = 0
     @State private var duration: Double = 0
+
+    init(episode: Episode, seriesId: String? = nil) {
+        self.episode = episode
+        self.seriesId = seriesId ?? episode.id
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -69,7 +75,7 @@ struct PlayerScreen: View {
         Task {
             if duration > 0 {
                 await progress.saveProgress(
-                    seriesId: episode.id,
+                    seriesId: seriesId,
                     episodeId: episode.id,
                     time: currentTime,
                     duration: duration

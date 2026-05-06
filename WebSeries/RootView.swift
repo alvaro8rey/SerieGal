@@ -21,7 +21,9 @@ struct RootView: View {
                     .environmentObject(favorites)
                     .environmentObject(progress)
                     .task {
-                        await favorites.loadFavorites()
+                        async let favoritesTask: Void = favorites.loadFavorites()
+                        async let progressTask: Void = progress.loadAllProgress()
+                        _ = await (favoritesTask, progressTask)
                     }
             } else {
                 LoginView()

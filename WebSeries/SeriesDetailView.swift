@@ -218,7 +218,10 @@ struct SeriesDetailView: View {
             LazyVStack(spacing: 12) {
                 ForEach(Array(season.episodes.enumerated()), id: \.element.id) { index, episode in
                     NavigationLink {
-                        PlayerScreen(episode: episode)
+                        PlayerScreen(
+                            episode: episode,
+                            seriesId: serie.id
+                        )
                     } label: {
                         EpisodeRowView(
                             seriesId: serie.id,

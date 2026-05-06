@@ -27,7 +27,8 @@ struct MovieDetailView: View {
                                     id: movie.id,
                                     title: movie.title,
                                     url: movie.url
-                                )
+                                ),
+                                seriesId: movie.id
                             )
                         } label: {
                             Label("Reproducir", systemImage: "play.fill")

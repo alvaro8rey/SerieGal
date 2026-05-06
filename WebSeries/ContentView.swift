@@ -34,6 +34,14 @@ struct ContentView: View {
                 if service.catalog == nil && service.error == nil {
                     await service.load()
                 }
+                if progress.allProgress.isEmpty {
+                    await progress.loadAllProgress()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .progressUpdated)) { _ in
+                Task {
+                    await progress.loadAllProgress()
+                }
             }
         }
     }
@@ -221,7 +229,45 @@ struct ContentView: View {
     }
 
     private var continueItems: [ContinueItem] {
-        []
+        guard let catalog = service.catalog else { return [] }
+
+        var items: [ContinueItem] = []
+        var seenIDs: Set<String> = []
+        let sortedProgress = progress.allProgress
+            .sorted { left, right in
+                switch (left.updatedAt, right.updatedAt) {
+                case let (.some(lDate), .some(rDate)):
+                    return lDate > rDate
+                case (.some, .none):
+                    return true
+                case (.none, .some):
+                    return false
+                case (.none, .none):
+                    return left.ratio > right.ratio
+                }
+            }
+
+        for progressItem in sortedProgress {
+            let ratio = min(max(progressItem.ratio, 0), 1)
+            guard ratio > 0.02 && ratio < 0.98 else { continue }
+
+            if let item = continueItemFromSeries(progressItem, catalog: catalog, ratio: ratio) {
+                if !seenIDs.contains(item.id) {
+                    items.append(item)
+                    seenIDs.insert(item.id)
+                }
+                continue
+            }
+
+            if let item = continueItemFromMovie(progressItem, catalog: catalog, ratio: ratio) {
+                if !seenIDs.contains(item.id) {
+                    items.append(item)
+                    seenIDs.insert(item.id)
+                }
+            }
+        }
+
+        return Array(items.prefix(15))
     }
 
     private var backgroundGradient: LinearGradient {
@@ -330,7 +376,8 @@ struct ContentView: View {
                             id: movie.id,
                             title: movie.title,
                             url: movie.url
-                        )
+                        ),
+                        seriesId: movie.id
                     )
                 ),
                 secondaryLabel: "Detalles",
@@ -354,7 +401,10 @@ struct ContentView: View {
                 primaryDestination: AnyView(
                     Group {
                         if let firstEpisode {
-                            PlayerScreen(episode: firstEpisode)
+                            PlayerScreen(
+                                episode: firstEpisode,
+                                seriesId: serie.id
+                            )
                         } else {
                             SeriesDetailView(serie: serie)
                         }
@@ -483,6 +533,78 @@ struct ContentView: View {
             partial + season.episodes.count
         }
         return "\(seasonCount) temporadas · \(episodeCount) episodios"
+    }
+
+    private func continueItemFromSeries(
+        _ progressItem: ProgressItem,
+        catalog: Catalog,
+        ratio: Double
+    ) -> ContinueItem? {
+        if let exactSeries = catalog.series.first(where: { $0.id == progressItem.seriesId }),
+           let item = continueItemFromSeries(
+            progressItem,
+            series: [exactSeries],
+            ratio: ratio
+           ) {
+            return item
+        }
+
+        return continueItemFromSeries(
+            progressItem,
+            series: catalog.series,
+            ratio: ratio
+        )
+    }
+
+    private func continueItemFromSeries(
+        _ progressItem: ProgressItem,
+        series: [Series],
+        ratio: Double
+    ) -> ContinueItem? {
+        for serie in series {
+            for season in serie.normalizedSeasons {
+                if let index = season.episodes.firstIndex(where: { $0.id == progressItem.episodeId }) {
+                    let episode = season.episodes[index]
+                    return ContinueItem(
+                        id: progressItem.id,
+                        seriesId: serie.id,
+                        episode: episode,
+                        imageId: serie.id,
+                        title: serie.title,
+                        subtitle: "Episodio \(index + 1): \(episode.title)",
+                        progress: ratio
+                    )
+                }
+            }
+        }
+
+        return nil
+    }
+
+    private func continueItemFromMovie(
+        _ progressItem: ProgressItem,
+        catalog: Catalog,
+        ratio: Double
+    ) -> ContinueItem? {
+        guard let movie = (catalog.movies ?? []).first(where: { movie in
+            movie.id == progressItem.seriesId || movie.id == progressItem.episodeId
+        }) else {
+            return nil
+        }
+
+        return ContinueItem(
+            id: progressItem.id,
+            seriesId: movie.id,
+            episode: Episode(
+                id: movie.id,
+                title: movie.title,
+                url: movie.url
+            ),
+            imageId: movie.id,
+            title: movie.title,
+            subtitle: "Película · \(movie.year)",
+            progress: ratio
+        )
     }
 }
 

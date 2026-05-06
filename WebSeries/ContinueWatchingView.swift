@@ -24,25 +24,58 @@ struct ContinueWatchingView: View {
             HorizontalSlider {
                 ForEach(items) { item in
                     NavigationLink {
-                        PlayerScreen(episode: item.episode)
+                        PlayerScreen(
+                            episode: item.episode,
+                            seriesId: item.seriesId
+                        )
                     } label: {
-                        VStack(alignment: .leading, spacing: 6) {
-
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(Color.gray.opacity(0.3))
-                                .frame(width: 160, height: 90)
-                                .overlay(
-                                    ProgressView(value: item.progress)
-                                        .tint(.serieGalBlue)
-                                        .padding(6),
-                                    alignment: .bottom
-                                )
+                        VStack(alignment: .leading, spacing: 8) {
+                            AsyncImage(url: URL(string: ServerConfig.webBaseURL + "/images/\(item.imageId).jpg")) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            } placeholder: {
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.serieGalCardBackground)
+                            }
+                            .frame(width: 180, height: 102)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .overlay(alignment: .bottom) {
+                                GeometryReader { proxy in
+                                    ZStack(alignment: .leading) {
+                                        Capsule()
+                                            .fill(Color.black.opacity(0.4))
+                                        Capsule()
+                                            .fill(
+                                                LinearGradient(
+                                                    colors: [.serieGalBlue, .serieGalViolet],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                )
+                                            )
+                                            .frame(width: proxy.size.width * min(max(item.progress, 0), 1))
+                                    }
+                                }
+                                .frame(height: 6)
+                                .padding(.horizontal, 8)
+                                .padding(.bottom, 8)
+                            }
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                            )
 
                             Text(item.title)
-                                .font(.caption)
+                                .font(.subheadline.weight(.semibold))
                                 .foregroundColor(.serieGalText)
                                 .lineLimit(1)
+
+                            Text(item.subtitle)
+                                .font(.caption)
+                                .foregroundColor(.serieGalSecondary)
+                                .lineLimit(1)
                         }
+                        .frame(width: 180, alignment: .leading)
                     }
                     .tint(.clear)
                 }
@@ -53,7 +86,10 @@ struct ContinueWatchingView: View {
 
 struct ContinueItem: Identifiable {
     let id: String
+    let seriesId: String
     let episode: Episode
+    let imageId: String
     let title: String
+    let subtitle: String
     let progress: Double
 }
