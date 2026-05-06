@@ -4,9 +4,12 @@ import SwiftUI
 struct SeriesDetailView: View {
 
     @EnvironmentObject var favorites: FavoritesService
+    @EnvironmentObject var progress: ProgressService
 
     let serie: Series
     @State private var selectedSeasonID: Int?
+    @State private var pendingPlayback: EpisodePlaybackRequest?
+    @State private var resumeChoice: EpisodeResumeChoice?
 
     var body: some View {
         ScrollView {
@@ -44,6 +47,51 @@ struct SeriesDetailView: View {
         .onAppear {
             if selectedSeasonID == nil {
                 selectedSeasonID = seasons.first?.id
+            }
+        }
+        .navigationDestination(item: $pendingPlayback) { playback in
+            PlayerScreen(
+                episode: playback.episode,
+                seriesId: playback.seriesId,
+                startAtTime: playback.startAt
+            )
+        }
+        .confirmationDialog(
+            "Continuar episodio",
+            isPresented: Binding(
+                get: { resumeChoice != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        resumeChoice = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let resumeChoice {
+                Button("Continuar viendo (\(formattedTime(resumeChoice.progress.time)))") {
+                    pendingPlayback = EpisodePlaybackRequest(
+                        episode: resumeChoice.episode,
+                        seriesId: serie.id,
+                        startAt: resumeChoice.progress.time
+                    )
+                    self.resumeChoice = nil
+                }
+                Button("Ver desde el inicio") {
+                    pendingPlayback = EpisodePlaybackRequest(
+                        episode: resumeChoice.episode,
+                        seriesId: serie.id,
+                        startAt: nil
+                    )
+                    self.resumeChoice = nil
+                }
+            }
+            Button("Cancelar", role: .cancel) {
+                resumeChoice = nil
+            }
+        } message: {
+            if resumeChoice != nil {
+                Text("Hay progreso guardado para este episodio.")
             }
         }
     }
@@ -217,11 +265,27 @@ struct SeriesDetailView: View {
 
             LazyVStack(spacing: 12) {
                 ForEach(Array(season.episodes.enumerated()), id: \.element.id) { index, episode in
-                    NavigationLink {
-                        PlayerScreen(
-                            episode: episode,
-                            seriesId: serie.id
-                        )
+                    Button {
+                        Task {
+                            let progressData = await progress.getProgress(
+                                seriesId: serie.id,
+                                episodeId: episode.id
+                            )
+                            await MainActor.run {
+                                if let progressData, shouldOfferResume(progressData) {
+                                    resumeChoice = EpisodeResumeChoice(
+                                        episode: episode,
+                                        progress: progressData
+                                    )
+                                } else {
+                                    pendingPlayback = EpisodePlaybackRequest(
+                                        episode: episode,
+                                        seriesId: serie.id,
+                                        startAt: nil
+                                    )
+                                }
+                            }
+                        }
                     } label: {
                         EpisodeRowView(
                             seriesId: serie.id,
@@ -262,4 +326,31 @@ struct SeriesDetailView: View {
         .background(Color.serieGalSurface)
         .clipShape(Capsule())
     }
+
+    private func shouldOfferResume(_ progress: ProgressResponse) -> Bool {
+        progress.time > 5 && progress.duration > 0 && progress.time < (progress.duration - 15)
+    }
+
+    private func formattedTime(_ time: Double) -> String {
+        let totalSeconds = Int(max(time, 0))
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+        }
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+}
+
+private struct EpisodePlaybackRequest: Identifiable {
+    let id = UUID()
+    let episode: Episode
+    let seriesId: String
+    let startAt: Double?
+}
+
+private struct EpisodeResumeChoice {
+    let episode: Episode
+    let progress: ProgressResponse
 }

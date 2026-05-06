@@ -26,7 +26,8 @@ struct ContinueWatchingView: View {
                     NavigationLink {
                         PlayerScreen(
                             episode: item.episode,
-                            seriesId: item.seriesId
+                            seriesId: item.seriesId,
+                            startAtTime: item.resumeTime
                         )
                     } label: {
                         VStack(alignment: .leading, spacing: 8) {
@@ -92,4 +93,5 @@ struct ContinueItem: Identifiable {
     let title: String
     let subtitle: String
     let progress: Double
+    let resumeTime: Double?
 }

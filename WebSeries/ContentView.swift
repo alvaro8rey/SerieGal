@@ -34,9 +34,7 @@ struct ContentView: View {
                 if service.catalog == nil && service.error == nil {
                     await service.load()
                 }
-                if progress.continueWatching.isEmpty {
-                    await progress.loadContinueWatching()
-                }
+                await progress.loadContinueWatching()
             }
             .onReceive(NotificationCenter.default.publisher(for: .progressUpdated)) { _ in
                 Task {
@@ -509,7 +507,7 @@ struct ContentView: View {
         ratio: Double
     ) -> ContinueItem? {
         if let movie = (catalog.movies ?? []).first(where: { movie in
-            movie.id == entry.seriesId || movie.id == entry.episodeId
+            idsMatch(movie.id, entry.seriesId) || idsMatch(movie.id, entry.episodeId)
         }) {
             return ContinueItem(
                 id: entry.id,
@@ -522,11 +520,12 @@ struct ContentView: View {
                 imageId: movie.id,
                 title: movie.title,
                 subtitle: "Película · \(movie.year)",
-                progress: ratio
+                progress: ratio,
+                resumeTime: entry.time
             )
         }
 
-        if let exactSeries = catalog.series.first(where: { $0.id == entry.seriesId }),
+        if let exactSeries = catalog.series.first(where: { idsMatch($0.id, entry.seriesId) }),
            let seriesItem = continueItemFromSeries(entry, series: [exactSeries], ratio: ratio) {
             return seriesItem
         }
@@ -547,7 +546,8 @@ struct ContentView: View {
             imageId: entry.seriesId,
             title: entry.episodeTitle ?? "Continuar viendo",
             subtitle: "Contenido guardado",
-            progress: ratio
+            progress: ratio,
+            resumeTime: entry.time
         )
     }
 
@@ -558,7 +558,7 @@ struct ContentView: View {
     ) -> ContinueItem? {
         for serie in series {
             for season in serie.normalizedSeasons {
-                if let index = season.episodes.firstIndex(where: { $0.id == entry.episodeId }) {
+                if let index = season.episodes.firstIndex(where: { idsMatch($0.id, entry.episodeId) }) {
                     let episode = season.episodes[index]
                     return ContinueItem(
                         id: entry.id,
@@ -567,13 +567,24 @@ struct ContentView: View {
                         imageId: serie.id,
                         title: serie.title,
                         subtitle: "Episodio \(index + 1): \(episode.title)",
-                        progress: ratio
+                        progress: ratio,
+                        resumeTime: entry.time
                     )
                 }
             }
         }
 
         return nil
+    }
+
+    private func idsMatch(_ left: String, _ right: String) -> Bool {
+        normalizedID(left) == normalizedID(right)
+    }
+
+    private func normalizedID(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 }
 

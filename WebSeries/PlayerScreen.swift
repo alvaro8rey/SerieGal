@@ -4,6 +4,7 @@ struct PlayerScreen: View {
 
     let episode: Episode
     let seriesId: String
+    let startAtTime: Double?
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var progress: ProgressService
 
@@ -15,9 +16,10 @@ struct PlayerScreen: View {
     @State private var lastSyncedSecond: Int = -1
     @State private var hasSavedAtClose = false
 
-    init(episode: Episode, seriesId: String? = nil) {
+    init(episode: Episode, seriesId: String? = nil, startAtTime: Double? = nil) {
         self.episode = episode
         self.seriesId = seriesId ?? episode.id
+        self.startAtTime = startAtTime
     }
 
     var body: some View {
@@ -28,6 +30,7 @@ struct PlayerScreen: View {
             // =========================
             PlayerView(
                 episode: episode,
+                startAtTime: startAtTime,
                 currentTime: $currentTime,
                 duration: $duration
             )
@@ -58,7 +61,11 @@ struct PlayerScreen: View {
             syncPeriodicProgress(for: newValue)
         }
         .onAppear {
-            print("▶️ PlayerScreen abierto -> seriesId=\(seriesId), episodeId=\(episode.id)")
+            if let startAtTime {
+                print("▶️ PlayerScreen abierto -> seriesId=\(seriesId), episodeId=\(episode.id), resume=\(Int(startAtTime))s")
+            } else {
+                print("▶️ PlayerScreen abierto -> seriesId=\(seriesId), episodeId=\(episode.id), resume=inicio")
+            }
         }
         .onDisappear {
             if !hasSavedAtClose {
@@ -81,7 +88,7 @@ struct PlayerScreen: View {
         let sanitizedTime = currentTime.isFinite ? max(currentTime, 0) : 0
         let sanitizedDuration = sanitizedDurationValue(for: sanitizedTime)
 
-        guard sanitizedTime > 1, sanitizedDuration > 0 else { return }
+        guard sanitizedTime > 5, sanitizedDuration > 0 else { return }
         print("💾 Snapshot progreso: t=\(Int(sanitizedTime)) d=\(Int(sanitizedDuration))")
 
         Task {
@@ -98,7 +105,7 @@ struct PlayerScreen: View {
     }
 
     private func syncPeriodicProgress(for newTime: Double) {
-        guard newTime.isFinite, newTime > 1 else { return }
+        guard newTime.isFinite, newTime > 5 else { return }
 
         let currentSecond = Int(newTime.rounded(.down))
         guard currentSecond % 10 == 0, currentSecond != lastSyncedSecond else { return }
