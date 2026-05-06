@@ -31,7 +31,7 @@ struct ContinueWatchingView: View {
                         )
                     } label: {
                         VStack(alignment: .leading, spacing: 8) {
-                            AsyncImage(url: URL(string: ServerConfig.webBaseURL + "/images/\(item.imageId).jpg")) { image in
+                            CachedAsyncImage(url: URL(string: ServerConfig.webBaseURL + "/images/\(item.imageId).jpg")) { image in
                                 image
                                     .resizable()
                                     .scaledToFill()

@@ -20,7 +20,7 @@ struct SeriesListView: View {
                         SeriesDetailView(serie: serie)
                     } label: {
                         HStack(spacing: 14) {
-                            AsyncImage(
+                            CachedAsyncImage(
                                 url: URL(string: ServerConfig.webBaseURL + "/images/\(serie.id).jpg")
                             ) { image in
                                 image

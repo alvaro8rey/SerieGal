@@ -20,7 +20,7 @@ struct MoviesListView: View {
                         MovieDetailView(movie: movie)
                     } label: {
                         HStack(spacing: 14) {
-                            AsyncImage(
+                            CachedAsyncImage(
                                 url: URL(string: ServerConfig.webBaseURL + "/images/\(movie.id).jpg")
                             ) { image in
                                 image.resizable().scaledToFill()

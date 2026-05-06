@@ -30,7 +30,7 @@ struct SearchResultsListView: View {
                 } label: {
                     HStack(spacing: 12) {
 
-                        AsyncImage(
+                        CachedAsyncImage(
                             url: URL(string: ServerConfig.webBaseURL + "/images/\(serie.id).jpg")
                         ) { image in
                             image.resizable().scaledToFill()
@@ -62,7 +62,7 @@ struct SearchResultsListView: View {
                 } label: {
                     HStack(spacing: 12) {
 
-                        AsyncImage(
+                        CachedAsyncImage(
                             url: URL(string: ServerConfig.webBaseURL + "/images/\(movie.id).jpg")
                         ) { image in
                             image.resizable().scaledToFill()

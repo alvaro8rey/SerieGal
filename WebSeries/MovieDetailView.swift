@@ -145,7 +145,7 @@ struct MovieDetailView: View {
 
     private var hero: some View {
         ZStack(alignment: .bottomLeading) {
-            AsyncImage(
+            CachedAsyncImage(
                 url: URL(string: ServerConfig.webBaseURL + "/images/\(movie.id).jpg")
             ) { image in
                 image

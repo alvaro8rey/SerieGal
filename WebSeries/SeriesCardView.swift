@@ -6,7 +6,7 @@ struct SeriesCardView: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            AsyncImage(
+            CachedAsyncImage(
                 url: URL(string: ServerConfig.webBaseURL + "/images/\(serie.id).jpg")
             ) { image in
                 image

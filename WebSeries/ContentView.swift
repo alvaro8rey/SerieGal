@@ -395,7 +395,7 @@ struct ContentView: View {
         secondaryDestination: AnyView
     ) -> some View {
         ZStack(alignment: .bottomLeading) {
-            AsyncImage(
+            CachedAsyncImage(
                 url: URL(string: ServerConfig.webBaseURL + "/images/\(id).jpg")
             ) { image in
                 image

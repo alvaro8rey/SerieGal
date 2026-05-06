@@ -100,7 +100,7 @@ struct FavoritesView: View {
 
     private func favoriteRow(id: String, title: String, subtitle: String) -> some View {
         HStack(spacing: 14) {
-            AsyncImage(url: URL(string: ServerConfig.webBaseURL + "/images/\(id).jpg")) { image in
+            CachedAsyncImage(url: URL(string: ServerConfig.webBaseURL + "/images/\(id).jpg")) { image in
                 image
                     .resizable()
                     .scaledToFill()

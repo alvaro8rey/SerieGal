@@ -6,7 +6,7 @@ struct MovieCardView: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            AsyncImage(
+            CachedAsyncImage(
                 url: URL(string: ServerConfig.webBaseURL + "/images/\(movie.id).jpg")
             ) { image in
                 image

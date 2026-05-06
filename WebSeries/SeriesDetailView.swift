@@ -80,7 +80,7 @@ struct SeriesDetailView: View {
 
     private var hero: some View {
         ZStack(alignment: .bottomLeading) {
-            AsyncImage(
+            CachedAsyncImage(
                 url: URL(string: ServerConfig.webBaseURL + "/images/\(serie.id).jpg")
             ) { image in
                 image
