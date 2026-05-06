@@ -29,7 +29,12 @@ final class ProgressService: ObservableObject {
         time: Double,
         duration: Double
     ) async {
-        guard let token = auth.token else { return }
+        guard let token = auth.token else {
+            print("⚠️ saveProgress cancelado: no hay token.")
+            return
+        }
+
+        print("🧭 saveProgress -> series_id=\(seriesId), episode_id=\(episodeId), time=\(Int(time))s, duration=\(Int(duration))s")
 
         var body: [String: Any] = [
             "series_id": seriesId,
@@ -64,7 +69,10 @@ final class ProgressService: ObservableObject {
     }
 
     func loadContinueWatching() async {
-        guard let token = auth.token else { return }
+        guard let token = auth.token else {
+            print("⚠️ loadContinueWatching cancelado: no hay token.")
+            return
+        }
 
         do {
             let data = try await APIClient.request(
@@ -74,6 +82,7 @@ final class ProgressService: ObservableObject {
 
             let items = try JSONDecoder().decode([ContinueWatchingEntry].self, from: data)
             continueWatching = items
+            print("✅ /continue-watching cargado. Items:", items.count)
             for item in items {
                 progressCache[cacheKey(seriesId: item.seriesId, episodeId: item.episodeId)] = ProgressResponse(
                     time: item.time,
@@ -90,10 +99,16 @@ final class ProgressService: ObservableObject {
         episodeId: String
     ) async -> ProgressResponse? {
         if let cached = progressCache[cacheKey(seriesId: seriesId, episodeId: episodeId)] {
+            print("🧠 getProgress cache hit -> \(seriesId)/\(episodeId)")
             return cached
         }
 
-        guard let token = auth.token else { return nil }
+        guard let token = auth.token else {
+            print("⚠️ getProgress cancelado: no hay token para \(seriesId)/\(episodeId).")
+            return nil
+        }
+
+        print("🧭 getProgress request -> \(seriesId)/\(episodeId)")
 
         do {
             let data = try await APIClient.request(

@@ -21,7 +21,10 @@ final class FavoritesService: ObservableObject {
     }
 
     func loadFavorites() async {
-        guard let token = auth.token else { return }
+        guard let token = auth.token else {
+            print("⚠️ loadFavorites cancelado: no hay token.")
+            return
+        }
 
         do {
             let data = try await APIClient.request(
@@ -31,6 +34,7 @@ final class FavoritesService: ObservableObject {
 
             let list = try JSONDecoder().decode([FavoriteDTO].self, from: data)
             favorites = Set(list.map { $0.seriesId })
+            print("✅ Favoritos cargados:", favorites.count)
 
         } catch {
             print("❌ Error cargando favoritos:", error)

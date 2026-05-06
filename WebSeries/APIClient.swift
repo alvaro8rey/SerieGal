@@ -24,6 +24,12 @@ struct APIClient {
 
         // 🔍 LOG REQUEST
         print("➡️ \(method) \(url.absoluteString)")
+        if let token {
+            let prefix = String(token.prefix(12))
+            print("🔐 Authorization: Bearer \(prefix)...")
+        } else {
+            print("🔐 Authorization: none")
+        }
         if let body {
             print("📤 BODY:", String(data: body, encoding: .utf8) ?? "nil")
         }

@@ -21,6 +21,8 @@ struct RootView: View {
                     .environmentObject(favorites)
                     .environmentObject(progress)
                     .task {
+                        let validSession = await auth.ensureValidSession()
+                        guard validSession else { return }
                         async let favoritesTask: Void = favorites.loadFavorites()
                         async let progressTask: Void = progress.loadContinueWatching()
                         _ = await (favoritesTask, progressTask)
