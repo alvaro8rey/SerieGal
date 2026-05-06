@@ -228,28 +228,25 @@ struct SeriesDetailView: View {
 
             LazyVStack(spacing: 12) {
                 ForEach(Array(season.episodes.enumerated()), id: \.element.id) { index, episode in
-                    VStack(alignment: .leading, spacing: 10) {
-                        Button {
+                    EpisodeRowView(
+                        seriesId: serie.id,
+                        episode: episode,
+                        index: index + 1,
+                        serieTitle: serie.title,
+                        isExpanded: expandedEpisodeID == episode.id,
+                        resumeProgress: resumeProgressByEpisode[episode.id],
+                        onPrimaryTap: {
                             handleEpisodeTap(episode)
-                        } label: {
-                            EpisodeRowView(
-                                seriesId: serie.id,
-                                episode: episode,
-                                index: index + 1,
-                                serieTitle: serie.title
-                            )
+                        },
+                        onContinueTap: {
+                            if let savedProgress = resumeProgressByEpisode[episode.id] {
+                                startPlayback(for: episode, startAt: savedProgress.time)
+                            }
+                        },
+                        onRestartTap: {
+                            startPlayback(for: episode, startAt: nil)
                         }
-                        .buttonStyle(.plain)
-
-                        if expandedEpisodeID == episode.id,
-                           let savedProgress = resumeProgressByEpisode[episode.id] {
-                            resumeActionRow(
-                                episode: episode,
-                                savedProgress: savedProgress
-                            )
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                        }
-                    }
+                    )
                 }
             }
         }
@@ -285,64 +282,13 @@ struct SeriesDetailView: View {
     }
 
     private func startPlayback(for episode: Episode, startAt: Double?) {
-        expandedEpisodeID = nil
+        withAnimation(.easeInOut(duration: 0.2)) {
+            expandedEpisodeID = nil
+        }
         pendingPlayback = EpisodePlaybackRequest(
             episode: episode,
             seriesId: serie.id,
             startAt: startAt
-        )
-    }
-
-    private func resumeActionRow(episode: Episode, savedProgress: ProgressResponse) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Hay progreso guardado en \(formattedTime(savedProgress.time))")
-                .font(.caption)
-                .foregroundColor(.serieGalSecondary)
-
-            HStack(spacing: 10) {
-                Button {
-                    startPlayback(for: episode, startAt: savedProgress.time)
-                } label: {
-                    Label("Continuar viendo", systemImage: "play.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            LinearGradient(
-                                colors: [.serieGalBlue, .serieGalViolet],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .foregroundColor(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    startPlayback(for: episode, startAt: nil)
-                } label: {
-                    Text("Ver desde el inicio")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.serieGalCardBackground)
-                        .foregroundColor(.serieGalText)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(12)
-        .background(Color.serieGalSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
     }
 
@@ -369,16 +315,6 @@ struct SeriesDetailView: View {
         progress.time > 5 && progress.duration > 0 && progress.time < (progress.duration - 15)
     }
 
-    private func formattedTime(_ time: Double) -> String {
-        let totalSeconds = Int(max(time, 0))
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        }
-        return String(format: "%d:%02d", minutes, seconds)
-    }
 }
 
 private struct EpisodePlaybackRequest: Identifiable, Hashable {
