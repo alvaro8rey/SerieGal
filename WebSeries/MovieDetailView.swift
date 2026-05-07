@@ -152,8 +152,8 @@ struct MovieDetailView: View {
                     image
                         .resizable()
                         .scaledToFill()
-                        .blur(radius: 20)
-                        .overlay(Color.black.opacity(0.34))
+                        .blur(radius: 18)
+                        .overlay(Color.black.opacity(0.36))
                         .scaleEffect(1.1)
                 } placeholder: {
                     Rectangle()
@@ -164,23 +164,12 @@ struct MovieDetailView: View {
                     image
                         .resizable()
                         .scaledToFit()
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color.white.opacity(0.22), lineWidth: 1)
-                        )
-                        .shadow(color: .black.opacity(0.38), radius: 16, x: 0, y: 10)
-                        .frame(maxWidth: 250, maxHeight: 320, alignment: .topTrailing)
-                        .padding(.top, 14)
-                        .padding(.trailing, 18)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(.horizontal, 26)
+                        .padding(.vertical, 14)
+                        .shadow(color: .black.opacity(0.42), radius: 16, x: 0, y: 10)
                 } placeholder: {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color.white.opacity(0.08))
-                        .frame(width: 210, height: 300)
-                        .padding(.top, 14)
-                        .padding(.trailing, 18)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                    Rectangle()
+                        .fill(Color.clear)
                 }
             }
             .frame(height: 360)
@@ -216,7 +205,6 @@ struct MovieDetailView: View {
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 22)
-            .padding(.trailing, 152)
         }
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay(
