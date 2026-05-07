@@ -469,15 +469,22 @@ struct ContentView: View {
         secondaryDestination: AnyView
     ) -> some View {
         ZStack(alignment: .bottomLeading) {
-            CachedAsyncImage(
-                url: URL(string: ServerConfig.webBaseURL + "/images/\(id).jpg")
-            ) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-            } placeholder: {
+            ZStack {
                 Rectangle()
                     .fill(Color.serieGalCardBackground)
+
+                CachedAsyncImage(
+                    url: URL(string: ServerConfig.webBaseURL + "/images/\(id).jpg")
+                ) { image in
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                } placeholder: {
+                    Rectangle()
+                        .fill(Color.serieGalCardBackground)
+                }
             }
             .frame(height: 320)
 

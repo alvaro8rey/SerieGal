@@ -88,18 +88,24 @@ struct SeriesDetailView: View {
 
     private var hero: some View {
         ZStack(alignment: .bottomLeading) {
-            CachedAsyncImage(
-                url: URL(string: ServerConfig.webBaseURL + "/images/\(serie.id).jpg")
-            ) { image in
-                image
-                    .resizable()
-                    .scaledToFill()
-            } placeholder: {
+            ZStack {
                 Rectangle()
                     .fill(Color.serieGalCardBackground)
+
+                CachedAsyncImage(
+                    url: URL(string: ServerConfig.webBaseURL + "/images/\(serie.id).jpg")
+                ) { image in
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                } placeholder: {
+                    Rectangle()
+                        .fill(Color.serieGalCardBackground)
+                }
             }
             .frame(height: 320)
-            .clipped()
 
             LinearGradient(
                 colors: [
