@@ -144,45 +144,30 @@ struct MovieDetailView: View {
     }
 
     private var hero: some View {
-        let coverURL = URL(string: ServerConfig.webBaseURL + "/images/\(movie.id).jpg")
-
         return ZStack(alignment: .bottomLeading) {
-            ZStack {
-                CachedAsyncImage(url: coverURL) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .blur(radius: 18)
-                        .overlay(Color.black.opacity(0.36))
-                        .scaleEffect(1.1)
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color.serieGalCardBackground)
-                }
-
-                CachedAsyncImage(url: coverURL) { image in
-                    image
-                        .resizable()
-                        .scaledToFit()
-                        .padding(.horizontal, 26)
-                        .padding(.vertical, 14)
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color.clear)
-                }
+            CachedAsyncImage(
+                url: URL(string: ServerConfig.webBaseURL + "/images/\(movie.id).jpg")
+            ) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+            } placeholder: {
+                Rectangle()
+                    .fill(Color.serieGalCardBackground)
             }
             .frame(height: 360)
             .clipped()
 
             LinearGradient(
                 colors: [
-                    Color.clear,
-                    Color.black.opacity(0.28),
-                    Color.black.opacity(0.9)
+                    Color.serieGalMagenta.opacity(0.15),
+                    Color.serieGalViolet.opacity(0.2),
+                    Color.black.opacity(0.87)
                 ],
-                startPoint: .top,
+                startPoint: .topLeading,
                 endPoint: .bottom
             )
+            .frame(height: 220)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("PELÍCULA")
