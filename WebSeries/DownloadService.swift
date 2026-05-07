@@ -184,6 +184,17 @@ final class DownloadService: NSObject, ObservableObject {
         recomputeStorage()
     }
 
+    func clearAllDownloads() {
+        for item in downloadedItems {
+            let path = downloadsDirectory().appendingPathComponent(item.relativeLocalPath)
+            try? FileManager.default.removeItem(at: path)
+            statuses[item.id] = .notDownloaded
+        }
+        downloadedItems.removeAll()
+        persistDownloadsIndex()
+        recomputeStorage()
+    }
+
     private func finalizeDownload(taskIdentifier: Int) {
         guard let pending = pendingByTaskId[taskIdentifier] else { return }
         guard let tempURL = tempLocationByTaskId[taskIdentifier] else {

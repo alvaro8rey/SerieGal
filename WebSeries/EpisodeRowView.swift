@@ -10,9 +10,14 @@ struct EpisodeRowView: View {
     let resumeProgress: ProgressResponse?
     let progressData: ProgressResponse?
     let isCompletedBySeriesState: Bool
+    let downloadStatus: DownloadStatus
     let onPrimaryTap: () -> Void
     let onContinueTap: (() -> Void)?
     let onRestartTap: (() -> Void)?
+    let onDownloadQualitySelected: ((DownloadQuality) -> Void)?
+    let onCancelDownload: (() -> Void)?
+    let onDeleteDownload: (() -> Void)?
+    let onRetryDownload: (() -> Void)?
 
     init(
         seriesId: String,
@@ -23,9 +28,14 @@ struct EpisodeRowView: View {
         resumeProgress: ProgressResponse? = nil,
         progressData: ProgressResponse? = nil,
         isCompletedBySeriesState: Bool = false,
+        downloadStatus: DownloadStatus = .notDownloaded,
         onPrimaryTap: @escaping () -> Void = {},
         onContinueTap: (() -> Void)? = nil,
-        onRestartTap: (() -> Void)? = nil
+        onRestartTap: (() -> Void)? = nil,
+        onDownloadQualitySelected: ((DownloadQuality) -> Void)? = nil,
+        onCancelDownload: (() -> Void)? = nil,
+        onDeleteDownload: (() -> Void)? = nil,
+        onRetryDownload: (() -> Void)? = nil
     ) {
         self.seriesId = seriesId
         self.episode = episode
@@ -35,9 +45,14 @@ struct EpisodeRowView: View {
         self.resumeProgress = resumeProgress
         self.progressData = progressData
         self.isCompletedBySeriesState = isCompletedBySeriesState
+        self.downloadStatus = downloadStatus
         self.onPrimaryTap = onPrimaryTap
         self.onContinueTap = onContinueTap
         self.onRestartTap = onRestartTap
+        self.onDownloadQualitySelected = onDownloadQualitySelected
+        self.onCancelDownload = onCancelDownload
+        self.onDeleteDownload = onDeleteDownload
+        self.onRetryDownload = onRetryDownload
     }
 
     var body: some View {
@@ -46,6 +61,8 @@ struct EpisodeRowView: View {
                 episodeMainContent
             }
             .buttonStyle(.plain)
+
+            downloadControls
 
             if isExpanded, let resumeProgress {
                 Divider()
@@ -114,6 +131,76 @@ struct EpisodeRowView: View {
                 )
         )
         .animation(.easeInOut(duration: 0.2), value: isExpanded)
+    }
+
+    @ViewBuilder
+    private var downloadControls: some View {
+        switch downloadStatus {
+        case .notDownloaded:
+            Menu {
+                ForEach(DownloadQuality.allCases) { quality in
+                    Button("Descargar \(quality.title)") {
+                        onDownloadQualitySelected?(quality)
+                    }
+                }
+            } label: {
+                Label("Descargar episodio", systemImage: "arrow.down.circle")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.serieGalSecondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Color.white.opacity(0.04))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        case .downloading(let progressValue, let quality):
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Descargando \(quality.title)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.serieGalText)
+                    Spacer()
+                    Button("Cancelar") {
+                        onCancelDownload?()
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.orange)
+                    .buttonStyle(.plain)
+                }
+                ProgressView(value: progressValue)
+                    .tint(.serieGalBlue)
+                Text("\(Int((progressValue * 100).rounded()))%")
+                    .font(.caption2)
+                    .foregroundColor(.serieGalSecondary)
+            }
+            .padding(.vertical, 2)
+        case .downloaded:
+            HStack {
+                Label("Disponible offline", systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.green)
+                Spacer()
+                Button("Eliminar") {
+                    onDeleteDownload?()
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.red)
+                .buttonStyle(.plain)
+            }
+        case .failed:
+            HStack {
+                Label("Error de descarga", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.orange)
+                Spacer()
+                Button("Reintentar") {
+                    onRetryDownload?()
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.serieGalBlue)
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     private var episodeMainContent: some View {

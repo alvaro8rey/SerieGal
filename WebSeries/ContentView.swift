@@ -11,6 +11,7 @@ struct ContentView: View {
 
     @State private var showSearch = false
     @State private var showFavorites = false
+    @State private var showDownloads = false
     @State private var hasPrefetchedInitialCovers = false
     @State private var featuredItems: [FeaturedItem] = []
     @State private var featuredSelection = 0
@@ -33,6 +34,9 @@ struct ContentView: View {
                 if let catalog = service.catalog {
                     FavoritesView(catalog: catalog)
                 }
+            }
+            .navigationDestination(isPresented: $showDownloads) {
+                DownloadsView()
             }
             .task {
                 if service.catalog == nil && service.error == nil {
@@ -87,6 +91,12 @@ struct ContentView: View {
                         showFavorites = true
                     } label: {
                         Label("Favoritos", systemImage: "star.fill")
+                    }
+
+                    Button {
+                        showDownloads = true
+                    } label: {
+                        Label("Descargas", systemImage: "arrow.down.circle.fill")
                     }
 
                     Divider()
