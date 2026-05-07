@@ -29,10 +29,11 @@ struct PlayerView: UIViewControllerRepresentable {
             }
 
             self.pendingSeekTime = nil
+            let tolerance = CMTime(seconds: 1.2, preferredTimescale: 600)
             player.seek(
                 to: CMTime(seconds: targetTime, preferredTimescale: 600),
-                toleranceBefore: .zero,
-                toleranceAfter: .zero
+                toleranceBefore: tolerance,
+                toleranceAfter: tolerance
             )
         }
     }
@@ -49,7 +50,13 @@ struct PlayerView: UIViewControllerRepresentable {
         let controller = AVPlayerViewController()
 
         if let url = episode.streamURL {
-            let player = AVPlayer(url: url)
+            let asset = AVURLAsset(url: url)
+            let item = AVPlayerItem(asset: asset)
+            item.preferredForwardBufferDuration = 2
+            item.canUseNetworkResourcesForLiveStreamingWhilePaused = true
+
+            let player = AVPlayer(playerItem: item)
+            player.automaticallyWaitsToMinimizeStalling = false
 
             if let startAtTime, startAtTime > 5 {
                 context.coordinator.pendingSeekTime = startAtTime
