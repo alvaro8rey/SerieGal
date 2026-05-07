@@ -11,6 +11,8 @@ struct ContentView: View {
     @State private var showSearch = false
     @State private var showFavorites = false
     @State private var hasPrefetchedInitialCovers = false
+    @State private var featuredItems: [FeaturedItem] = []
+    @State private var featuredSelection = 0
 
     var body: some View {
         NavigationStack {
@@ -35,9 +37,14 @@ struct ContentView: View {
                 if service.catalog == nil && service.error == nil {
                     await service.load()
                 }
-                if let catalog = service.catalog, !hasPrefetchedInitialCovers {
-                    hasPrefetchedInitialCovers = true
-                    prefetchInitialCovers(for: catalog)
+                if let catalog = service.catalog {
+                    if featuredItems.isEmpty {
+                        refreshFeaturedItems(for: catalog)
+                    }
+                    if !hasPrefetchedInitialCovers {
+                        hasPrefetchedInitialCovers = true
+                        prefetchInitialCovers(for: catalog)
+                    }
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .progressUpdated)) { _ in
@@ -119,10 +126,7 @@ struct ContentView: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 38) {
-                    if let featured = featuredItem(movies: movies, series: series) {
-                        featuredHero(for: featured)
-                            .padding(.horizontal)
-                    }
+                    featuredCarousel(movies: movies, series: series)
 
                     if !continueItems.isEmpty {
                         ContinueWatchingView(items: continueItems)
@@ -194,6 +198,45 @@ struct ContentView: View {
             ProgressView("Cargando catálogo…")
                 .foregroundColor(.serieGalText)
                 .padding(.top, 80)
+        }
+    }
+
+    @ViewBuilder
+    private func featuredCarousel(movies: [Movie], series: [Series]) -> some View {
+        let items = featuredItemsForDisplay(movies: movies, series: series)
+        if !items.isEmpty {
+            VStack(spacing: 14) {
+                TabView(selection: $featuredSelection) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                        featuredHero(for: item)
+                            .tag(index)
+                    }
+                }
+                .frame(height: 320)
+                .tabViewStyle(.page(indexDisplayMode: .never))
+
+                HStack(spacing: 7) {
+                    ForEach(items.indices, id: \.self) { index in
+                        Capsule()
+                            .fill(index == featuredSelection ? Color.white : Color.white.opacity(0.35))
+                            .frame(width: index == featuredSelection ? 18 : 7, height: 7)
+                            .animation(.easeInOut(duration: 0.22), value: featuredSelection)
+                    }
+                }
+            }
+            .padding(.horizontal)
+            .task(id: featuredRotationTaskID(for: items)) {
+                guard items.count > 1 else { return }
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 6_500_000_000)
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        withAnimation(.easeInOut(duration: 0.35)) {
+                            featuredSelection = (featuredSelection + 1) % items.count
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -322,6 +365,33 @@ struct ContentView: View {
             return .series(serie)
         }
         return nil
+    }
+
+    private func featuredItemsForDisplay(movies: [Movie], series: [Series]) -> [FeaturedItem] {
+        if !featuredItems.isEmpty {
+            return featuredItems
+        }
+        guard let featured = featuredItem(movies: movies, series: series) else {
+            return []
+        }
+        return [featured]
+    }
+
+    private func featuredRotationTaskID(for items: [FeaturedItem]) -> String {
+        items.map(\.stableID).joined(separator: "|")
+    }
+
+    private func refreshFeaturedItems(for catalog: Catalog) {
+        let pool = (catalog.movies ?? []).map(FeaturedItem.movie) + catalog.series.map(FeaturedItem.series)
+        guard !pool.isEmpty else {
+            featuredItems = []
+            featuredSelection = 0
+            return
+        }
+
+        let selectionCount = min(pool.count, 7)
+        featuredItems = Array(pool.shuffled().prefix(selectionCount))
+        featuredSelection = 0
     }
 
     @ViewBuilder
@@ -608,4 +678,13 @@ struct ContentView: View {
 private enum FeaturedItem {
     case movie(Movie)
     case series(Series)
+
+    var stableID: String {
+        switch self {
+        case .movie(let movie):
+            return "movie:\(movie.id)"
+        case .series(let serie):
+            return "series:\(serie.id)"
+        }
+    }
 }
