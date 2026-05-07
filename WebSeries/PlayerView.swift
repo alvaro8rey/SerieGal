@@ -51,6 +51,7 @@ struct PlayerView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> AVPlayerViewController {
 
         let controller = AVPlayerViewController()
+        configureAudioSessionForPlayback()
 
         if let url = playbackURL ?? episode.streamURL {
             let asset = AVURLAsset(url: url)
@@ -132,5 +133,15 @@ struct PlayerView: UIViewControllerRepresentable {
 
         uiViewController.player?.pause()
         uiViewController.player = nil
+    }
+
+    private func configureAudioSessionForPlayback() {
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            try audioSession.setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay, .allowBluetoothA2DP])
+            try audioSession.setActive(true, options: [])
+        } catch {
+            debugLog("❌ Error configurando AVAudioSession playback:", error)
+        }
     }
 }
