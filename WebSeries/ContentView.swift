@@ -7,6 +7,7 @@ struct ContentView: View {
     @EnvironmentObject var auth: AuthService
     @EnvironmentObject var favorites: FavoritesService
     @EnvironmentObject var progress: ProgressService
+    @EnvironmentObject var downloads: DownloadService
 
     @State private var showSearch = false
     @State private var showFavorites = false
@@ -130,6 +131,36 @@ struct ContentView: View {
 
                     if !continueItems.isEmpty {
                         ContinueWatchingView(items: continueItems)
+                    }
+
+                    if !almostFinishedItems.isEmpty {
+                        ContinueWatchingView(title: "Pendientes por terminar", items: almostFinishedItems)
+                    }
+
+                    if let becauseSection = becauseYouWatchedSection(catalog: catalog) {
+                        smartSection(
+                            title: "Porque viste \(becauseSection.anchorTitle)",
+                            subtitle: "Sugerencias relacionadas con tu consumo reciente",
+                            items: becauseSection.items
+                        )
+                    }
+
+                    let recentItems = recentlyAddedItems(catalog: catalog)
+                    if !recentItems.isEmpty {
+                        smartSection(
+                            title: "Recientemente añadidos",
+                            subtitle: "Lo último que incorporaste a tu catálogo",
+                            items: recentItems
+                        )
+                    }
+
+                    let mostWatched = mostWatchedWeekItems(catalog: catalog)
+                    if !mostWatched.isEmpty {
+                        smartSection(
+                            title: "Más vistos esta semana",
+                            subtitle: "Basado en lo que más has reproducido estos días",
+                            items: mostWatched
+                        )
                     }
 
                     if !movies.isEmpty {
@@ -273,6 +304,53 @@ struct ContentView: View {
         .padding(.horizontal)
     }
 
+    @ViewBuilder
+    private func smartSection(
+        title: String,
+        subtitle: String,
+        items: [FeaturedItem]
+    ) -> some View {
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title)
+                        .font(.title2.weight(.bold))
+                        .foregroundColor(.serieGalText)
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundColor(.serieGalSecondary)
+                }
+                .padding(.horizontal)
+
+                HorizontalSlider {
+                    ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                        smartItemCard(item)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func smartItemCard(_ item: FeaturedItem) -> some View {
+        switch item {
+        case .movie(let movie):
+            NavigationLink {
+                MovieDetailView(movie: movie)
+            } label: {
+                MovieCardView(movie: movie)
+            }
+            .tint(.clear)
+        case .series(let serie):
+            NavigationLink {
+                SeriesDetailView(serie: serie)
+            } label: {
+                SeriesCardView(serie: serie)
+            }
+            .tint(.clear)
+        }
+    }
+
     private var continueItems: [ContinueItem] {
         guard let catalog = service.catalog else { return [] }
 
@@ -280,6 +358,12 @@ struct ContentView: View {
             let ratio = min(max(entry.ratio, 0), 1)
             guard ratio > 0.02 && ratio < 0.98 else { return nil }
             return continueItem(from: entry, catalog: catalog, ratio: ratio)
+        }
+    }
+
+    private var almostFinishedItems: [ContinueItem] {
+        continueItems.filter { item in
+            item.progress >= 0.75 && item.progress < 0.98
         }
     }
 
@@ -300,6 +384,13 @@ struct ContentView: View {
             HStack(spacing: 10) {
                 quickActionChip(icon: "tv.fill", title: "Series", count: service.catalog?.series.count)
                 quickActionChip(icon: "film.fill", title: "Películas", count: service.catalog?.movies?.count)
+                if downloads.totalStorageBytes > 0 {
+                    quickActionChip(
+                        icon: "arrow.down.circle.fill",
+                        title: "Offline",
+                        badge: formattedStorage(downloads.totalStorageBytes)
+                    )
+                }
 
                 Button {
                     showFavorites = true
@@ -323,13 +414,17 @@ struct ContentView: View {
     }
 
     private func quickActionChip(icon: String, title: String, count: Int?) -> some View {
+        quickActionChip(icon: icon, title: title, badge: count.map { "\($0)" })
+    }
+
+    private func quickActionChip(icon: String, title: String, badge: String?) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.caption)
             Text(title)
                 .fontWeight(.semibold)
-            if let count {
-                Text("\(count)")
+            if let badge {
+                Text(badge)
                     .font(.caption.weight(.bold))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
@@ -355,6 +450,13 @@ struct ContentView: View {
         .overlay(
             Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
+    }
+
+    private func formattedStorage(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
 
     private func featuredItem(movies: [Movie], series: [Series]) -> FeaturedItem? {
@@ -392,6 +494,80 @@ struct ContentView: View {
         let selectionCount = min(pool.count, 7)
         featuredItems = Array(pool.shuffled().prefix(selectionCount))
         featuredSelection = 0
+    }
+
+    private func becauseYouWatchedSection(catalog: Catalog) -> (anchorTitle: String, items: [FeaturedItem])? {
+        guard let first = progress.continueWatching.first else { return nil }
+
+        if let anchorMovie = (catalog.movies ?? []).first(where: { idsMatch($0.id, first.seriesId) || idsMatch($0.id, first.episodeId) }) {
+            let suggestions = (catalog.movies ?? [])
+                .filter { !idsMatch($0.id, anchorMovie.id) }
+                .prefix(12)
+                .map(FeaturedItem.movie)
+            return suggestions.isEmpty ? nil : (anchorMovie.title, suggestions)
+        }
+
+        if let anchorSeries = catalog.series.first(where: { idsMatch($0.id, first.seriesId) }) {
+            let suggestions = catalog.series
+                .filter { !idsMatch($0.id, anchorSeries.id) }
+                .prefix(12)
+                .map(FeaturedItem.series)
+            return suggestions.isEmpty ? nil : (anchorSeries.title, suggestions)
+        }
+
+        return nil
+    }
+
+    private func recentlyAddedItems(catalog: Catalog) -> [FeaturedItem] {
+        let recentMovies = Array((catalog.movies ?? []).suffix(6).reversed()).map(FeaturedItem.movie)
+        let recentSeries = Array(catalog.series.suffix(6).reversed()).map(FeaturedItem.series)
+        return interleaved(left: recentSeries, right: recentMovies).prefix(12).map { $0 }
+    }
+
+    private func mostWatchedWeekItems(catalog: Catalog) -> [FeaturedItem] {
+        var used = Set<String>()
+        var result: [FeaturedItem] = []
+
+        let orderedEntries = progress.continueWatching.sorted { lhs, rhs in
+            if lhs.ratio != rhs.ratio {
+                return lhs.ratio > rhs.ratio
+            }
+            return lhs.time > rhs.time
+        }
+
+        for entry in orderedEntries {
+            guard let item = featuredItem(for: entry, catalog: catalog) else { continue }
+            guard !used.contains(item.stableID) else { continue }
+            used.insert(item.stableID)
+            result.append(item)
+            if result.count >= 12 { break }
+        }
+
+        return result
+    }
+
+    private func featuredItem(for entry: ContinueWatchingEntry, catalog: Catalog) -> FeaturedItem? {
+        if let movie = (catalog.movies ?? []).first(where: { idsMatch($0.id, entry.seriesId) || idsMatch($0.id, entry.episodeId) }) {
+            return .movie(movie)
+        }
+        if let serie = catalog.series.first(where: { idsMatch($0.id, entry.seriesId) }) {
+            return .series(serie)
+        }
+        return nil
+    }
+
+    private func interleaved(left: [FeaturedItem], right: [FeaturedItem]) -> [FeaturedItem] {
+        let maxCount = max(left.count, right.count)
+        var output: [FeaturedItem] = []
+        for index in 0..<maxCount {
+            if index < left.count {
+                output.append(left[index])
+            }
+            if index < right.count {
+                output.append(right[index])
+            }
+        }
+        return output
     }
 
     @ViewBuilder

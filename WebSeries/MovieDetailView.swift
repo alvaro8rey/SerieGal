@@ -4,6 +4,7 @@ struct MovieDetailView: View {
 
     @EnvironmentObject var favorites: FavoritesService
     @EnvironmentObject var progress: ProgressService
+    @EnvironmentObject var downloads: DownloadService
 
     let movie: Movie
     @State private var pendingPlayback: MoviePlaybackRequest?
@@ -57,6 +58,8 @@ struct MovieDetailView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                     }
+
+                    downloadPanel
 
                     if expandedPlayOptions, let savedProgress {
                         Divider()
@@ -244,6 +247,90 @@ struct MovieDetailView: View {
             seriesId: movie.id,
             startAt: startAt
         )
+    }
+
+    private var movieEpisode: Episode {
+        Episode(
+            id: movie.id,
+            title: movie.title,
+            url: movie.url
+        )
+    }
+
+    @ViewBuilder
+    private var downloadPanel: some View {
+        let downloadStatus = downloads.status(seriesId: movie.id, episodeId: movie.id)
+        switch downloadStatus {
+        case .notDownloaded:
+            Menu {
+                ForEach(DownloadQuality.allCases) { quality in
+                    Button("Descargar \(quality.title)") {
+                        downloads.startDownload(
+                            episode: movieEpisode,
+                            seriesId: movie.id,
+                            preferredTitle: movie.title,
+                            quality: quality
+                        )
+                    }
+                }
+            } label: {
+                Label("Descargar para ver offline", systemImage: "arrow.down.circle")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.serieGalText)
+                    .padding(.vertical, 8)
+            }
+        case .downloading(let progressValue, let quality):
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("Descargando (\(quality.title))", systemImage: "arrow.down.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.serieGalText)
+                    Spacer()
+                    Button("Cancelar") {
+                        downloads.cancelDownload(seriesId: movie.id, episodeId: movie.id)
+                    }
+                    .font(.caption.weight(.semibold))
+                }
+                ProgressView(value: progressValue)
+                    .tint(.serieGalBlue)
+                Text("\(Int((progressValue * 100).rounded()))%")
+                    .font(.caption)
+                    .foregroundColor(.serieGalSecondary)
+            }
+        case .downloaded(let item):
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Disponible offline", systemImage: "checkmark.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.green)
+                    Text("Calidad \(item.quality.title)")
+                        .font(.caption)
+                        .foregroundColor(.serieGalSecondary)
+                }
+                Spacer()
+                Button("Eliminar") {
+                    downloads.deleteDownload(seriesId: movie.id, episodeId: movie.id)
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.red)
+            }
+        case .failed(let message):
+            VStack(alignment: .leading, spacing: 8) {
+                Label(message, systemImage: "exclamationmark.triangle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.orange)
+                Button("Reintentar descarga") {
+                    downloads.startDownload(
+                        episode: movieEpisode,
+                        seriesId: movie.id,
+                        preferredTitle: movie.title,
+                        quality: .media
+                    )
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.serieGalBlue)
+            }
+        }
     }
 
     private func shouldOfferResume(_ progress: ProgressResponse) -> Bool {

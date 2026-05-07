@@ -4,9 +4,11 @@ import AVKit
 struct PlayerView: UIViewControllerRepresentable {
 
     let episode: Episode
+    let playbackURL: URL?
     let startAtTime: Double?
     @Binding var currentTime: Double
     @Binding var duration: Double
+    @Binding var didFinishPlayback: Bool
 
     // =========================
     // COORDINATOR
@@ -14,6 +16,7 @@ struct PlayerView: UIViewControllerRepresentable {
     class Coordinator: NSObject {
         var timeObserver: Any?
         var statusObserver: NSKeyValueObservation?
+        var didPlayToEndObserver: NSObjectProtocol?
         var pendingSeekTime: Double?
 
         func applyPendingSeekIfNeeded(player: AVPlayer) {
@@ -49,7 +52,7 @@ struct PlayerView: UIViewControllerRepresentable {
 
         let controller = AVPlayerViewController()
 
-        if let url = episode.streamURL {
+        if let url = playbackURL ?? episode.streamURL {
             let asset = AVURLAsset(url: url)
             let item = AVPlayerItem(asset: asset)
             item.preferredForwardBufferDuration = 2
@@ -84,6 +87,14 @@ struct PlayerView: UIViewControllerRepresentable {
                 }
             }
 
+            context.coordinator.didPlayToEndObserver = NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: item,
+                queue: .main
+            ) { _ in
+                didFinishPlayback = true
+            }
+
             controller.player = player
         }
 
@@ -113,6 +124,9 @@ struct PlayerView: UIViewControllerRepresentable {
     ) {
         if let observer = coordinator.timeObserver {
             uiViewController.player?.removeTimeObserver(observer)
+        }
+        if let didPlayToEndObserver = coordinator.didPlayToEndObserver {
+            NotificationCenter.default.removeObserver(didPlayToEndObserver)
         }
         coordinator.statusObserver = nil
 

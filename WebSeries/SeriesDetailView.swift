@@ -5,6 +5,7 @@ struct SeriesDetailView: View {
 
     @EnvironmentObject var favorites: FavoritesService
     @EnvironmentObject var progress: ProgressService
+    @EnvironmentObject var downloads: DownloadService
 
     let serie: Series
     @State private var selectedSeasonID: Int?
@@ -62,7 +63,8 @@ struct SeriesDetailView: View {
             PlayerScreen(
                 episode: playback.episode,
                 seriesId: playback.seriesId,
-                startAtTime: playback.startAt
+                startAtTime: playback.startAt,
+                upNextQueue: playback.upNextQueue
             )
         }
     }
@@ -254,27 +256,30 @@ struct SeriesDetailView: View {
         let rowProgress = progressDataForEpisode(episode)
         let rowCompleted = isEpisodeCompleted(episode: episode, progressData: rowProgress)
 
-        return EpisodeRowView(
-            seriesId: serie.id,
-            episode: episode,
-            index: index + 1,
-            serieTitle: serie.title,
-            isExpanded: expandedEpisodeID == episode.id,
-            resumeProgress: resumeProgressByEpisode[episode.id],
-            progressData: rowProgress,
-            isCompletedBySeriesState: rowCompleted,
-            onPrimaryTap: {
-                handleEpisodeTap(episode)
-            },
-            onContinueTap: {
-                if let savedProgress = resumeProgressByEpisode[episode.id] {
-                    startPlayback(for: episode, startAt: savedProgress.time)
+        return VStack(alignment: .leading, spacing: 8) {
+            EpisodeRowView(
+                seriesId: serie.id,
+                episode: episode,
+                index: index + 1,
+                serieTitle: serie.title,
+                isExpanded: expandedEpisodeID == episode.id,
+                resumeProgress: resumeProgressByEpisode[episode.id],
+                progressData: rowProgress,
+                isCompletedBySeriesState: rowCompleted,
+                onPrimaryTap: {
+                    handleEpisodeTap(episode)
+                },
+                onContinueTap: {
+                    if let savedProgress = resumeProgressByEpisode[episode.id] {
+                        startPlayback(for: episode, startAt: savedProgress.time)
+                    }
+                },
+                onRestartTap: {
+                    startPlayback(for: episode, startAt: nil)
                 }
-            },
-            onRestartTap: {
-                startPlayback(for: episode, startAt: nil)
-            }
-        )
+            )
+            episodeDownloadControls(for: episode)
+        }
     }
 
     private func handleEpisodeTap(_ episode: Episode) {
@@ -311,11 +316,23 @@ struct SeriesDetailView: View {
         withAnimation(.easeInOut(duration: 0.2)) {
             expandedEpisodeID = nil
         }
+        let queue = episodesAfterCurrent(episode)
         pendingPlayback = EpisodePlaybackRequest(
             episode: episode,
             seriesId: serie.id,
-            startAt: startAt
+            startAt: startAt,
+            upNextQueue: queue
         )
+    }
+
+    private func episodesAfterCurrent(_ currentEpisode: Episode) -> [Episode] {
+        let allEpisodes = seasons.flatMap(\.episodes)
+        guard let currentIndex = allEpisodes.firstIndex(where: { idsMatch($0.id, currentEpisode.id) }) else {
+            return []
+        }
+        let nextIndex = allEpisodes.index(after: currentIndex)
+        guard nextIndex < allEpisodes.endIndex else { return [] }
+        return Array(allEpisodes[nextIndex...])
     }
 
     private func loadSeriesProgress() async {
@@ -362,6 +379,76 @@ struct SeriesDetailView: View {
         progress.time > 5 && progress.duration > 0 && progress.time < (progress.duration - 15)
     }
 
+    @ViewBuilder
+    private func episodeDownloadControls(for episode: Episode) -> some View {
+        let status = downloads.status(seriesId: serie.id, episodeId: episode.id)
+        switch status {
+        case .notDownloaded:
+            Menu {
+                ForEach(DownloadQuality.allCases) { quality in
+                    Button("Descargar \(quality.title)") {
+                        downloads.startDownload(
+                            episode: episode,
+                            seriesId: serie.id,
+                            preferredTitle: "\(serie.title) · \(episode.title)",
+                            quality: quality
+                        )
+                    }
+                }
+            } label: {
+                Label("Descargar episodio", systemImage: "arrow.down.circle")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.serieGalSecondary)
+            }
+            .padding(.leading, 10)
+        case .downloading(let progressValue, let quality):
+            HStack(spacing: 10) {
+                ProgressView(value: progressValue)
+                    .tint(.serieGalBlue)
+                Text("Descargando \(quality.title) · \(Int((progressValue * 100).rounded()))%")
+                    .font(.caption)
+                    .foregroundColor(.serieGalSecondary)
+                Spacer()
+                Button("Cancelar") {
+                    downloads.cancelDownload(seriesId: serie.id, episodeId: episode.id)
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.orange)
+            }
+            .padding(.horizontal, 10)
+        case .downloaded:
+            HStack {
+                Label("Disponible offline", systemImage: "checkmark.circle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.green)
+                Spacer()
+                Button("Eliminar") {
+                    downloads.deleteDownload(seriesId: serie.id, episodeId: episode.id)
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.red)
+            }
+            .padding(.horizontal, 10)
+        case .failed:
+            HStack {
+                Label("Error de descarga", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.orange)
+                Spacer()
+                Button("Reintentar") {
+                    downloads.startDownload(
+                        episode: episode,
+                        seriesId: serie.id,
+                        preferredTitle: "\(serie.title) · \(episode.title)",
+                        quality: .media
+                    )
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.serieGalBlue)
+            }
+            .padding(.horizontal, 10)
+        }
+    }
 }
 
 private struct EpisodePlaybackRequest: Identifiable, Hashable {
@@ -369,6 +456,7 @@ private struct EpisodePlaybackRequest: Identifiable, Hashable {
     let episode: Episode
     let seriesId: String
     let startAt: Double?
+    let upNextQueue: [Episode]
 
     static func == (lhs: EpisodePlaybackRequest, rhs: EpisodePlaybackRequest) -> Bool {
         lhs.id == rhs.id

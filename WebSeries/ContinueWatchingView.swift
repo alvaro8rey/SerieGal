@@ -10,12 +10,18 @@ import SwiftUI
 
 struct ContinueWatchingView: View {
 
+    let title: String
     let items: [ContinueItem]
+
+    init(title: String = "Seguir viendo", items: [ContinueItem]) {
+        self.title = title
+        self.items = items
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
 
-            Text("Seguir viendo")
+            Text(title)
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(.serieGalText)
