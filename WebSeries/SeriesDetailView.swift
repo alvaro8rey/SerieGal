@@ -327,12 +327,12 @@ struct SeriesDetailView: View {
 
     private func episodesAfterCurrent(_ currentEpisode: Episode) -> [Episode] {
         let allEpisodes = seasons.flatMap(\.episodes)
-        guard let currentIndex = allEpisodes.firstIndex(where: { idsMatch($0.id, currentEpisode.id) }) else {
+        guard let currentIndex = allEpisodes.firstIndex(where: {
+            normalizedID($0.id) == normalizedID(currentEpisode.id)
+        }) else {
             return []
         }
-        let nextIndex = allEpisodes.index(after: currentIndex)
-        guard nextIndex < allEpisodes.endIndex else { return [] }
-        return Array(allEpisodes[nextIndex...])
+        return Array(allEpisodes.dropFirst(currentIndex + 1))
     }
 
     private func loadSeriesProgress() async {
@@ -377,6 +377,12 @@ struct SeriesDetailView: View {
 
     private func shouldOfferResume(_ progress: ProgressResponse) -> Bool {
         progress.time > 5 && progress.duration > 0 && progress.time < (progress.duration - 15)
+    }
+
+    private func normalizedID(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
     }
 
     @ViewBuilder
