@@ -166,7 +166,6 @@ struct MovieDetailView: View {
                         .scaledToFit()
                         .padding(.horizontal, 26)
                         .padding(.vertical, 14)
-                        .shadow(color: .black.opacity(0.42), radius: 16, x: 0, y: 10)
                 } placeholder: {
                     Rectangle()
                         .fill(Color.clear)
@@ -177,14 +176,13 @@ struct MovieDetailView: View {
 
             LinearGradient(
                 colors: [
-                    Color.serieGalMagenta.opacity(0.15),
-                    Color.serieGalViolet.opacity(0.2),
-                    Color.black.opacity(0.87)
+                    Color.clear,
+                    Color.black.opacity(0.28),
+                    Color.black.opacity(0.9)
                 ],
-                startPoint: .topLeading,
+                startPoint: .top,
                 endPoint: .bottom
             )
-            .frame(height: 220)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("PELÍCULA")

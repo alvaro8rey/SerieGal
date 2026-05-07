@@ -212,7 +212,7 @@ struct ContentView: View {
                             .tag(index)
                     }
                 }
-                .frame(height: 320)
+                .frame(height: 360)
                 .tabViewStyle(.page(indexDisplayMode: .never))
 
                 HStack(spacing: 7) {
@@ -470,46 +470,52 @@ struct ContentView: View {
     ) -> some View {
         let coverURL = URL(string: ServerConfig.webBaseURL + "/images/\(id).jpg")
 
-        return ZStack(alignment: .bottomLeading) {
-            ZStack {
-                CachedAsyncImage(url: coverURL) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .blur(radius: 16)
-                        .overlay(Color.black.opacity(0.36))
-                        .scaleEffect(1.1)
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color.serieGalCardBackground)
-                }
+        return VStack(spacing: 0) {
+            ZStack(alignment: .topTrailing) {
+                ZStack {
+                    CachedAsyncImage(url: coverURL) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .blur(radius: 14)
+                            .overlay(Color.black.opacity(0.34))
+                            .scaleEffect(1.12)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(Color.serieGalCardBackground)
+                    }
 
-                CachedAsyncImage(url: coverURL) { image in
-                    image
-                        .resizable()
-                        .scaledToFit()
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 12)
-                        .shadow(color: .black.opacity(0.42), radius: 14, x: 0, y: 10)
-                } placeholder: {
-                    Rectangle()
-                        .fill(Color.clear)
+                    LinearGradient(
+                        colors: [Color.clear, Color.black.opacity(0.35)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+
+                    CachedAsyncImage(url: coverURL) { image in
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                    } placeholder: {
+                        Rectangle().fill(Color.clear)
+                    }
                 }
+                .frame(height: 186)
+                .clipped()
+
+                Button(action: favoriteAction) {
+                    Image(systemName: isFavorite ? "star.fill" : "star")
+                        .font(.headline)
+                        .foregroundColor(isFavorite ? .yellow : .white)
+                        .frame(width: 38, height: 38)
+                        .background(Color.black.opacity(0.35))
+                        .clipShape(Circle())
+                }
+                .padding(12)
             }
-            .frame(height: 320)
-            .clipped()
 
-            LinearGradient(
-                colors: [
-                    Color.clear,
-                    Color.black.opacity(0.18),
-                    Color.black.opacity(0.92)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text("DESTACADO")
                     .font(.caption.weight(.bold))
                     .foregroundColor(.white)
@@ -545,6 +551,8 @@ struct ContentView: View {
                         Label(primaryLabel, systemImage: "play.fill")
                             .font(.subheadline.weight(.bold))
                             .lineLimit(1)
+                            .minimumScaleFactor(0.88)
+                            .frame(maxWidth: .infinity)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
                             .background(Color.white)
@@ -558,6 +566,8 @@ struct ContentView: View {
                         Text(secondaryLabel)
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(1)
+                            .minimumScaleFactor(0.88)
+                            .frame(maxWidth: .infinity)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
                             .background(.ultraThinMaterial)
@@ -566,18 +576,14 @@ struct ContentView: View {
                     }
                 }
             }
-            .padding(18)
-        }
-        .overlay(alignment: .topTrailing) {
-            Button(action: favoriteAction) {
-                Image(systemName: isFavorite ? "star.fill" : "star")
-                    .font(.headline)
-                    .foregroundColor(isFavorite ? .yellow : .white)
-                    .frame(width: 38, height: 38)
-                    .background(Color.black.opacity(0.35))
-                    .clipShape(Circle())
-            }
-            .padding(14)
+            .padding(16)
+            .background(
+                LinearGradient(
+                    colors: [Color.black.opacity(0.85), Color.black.opacity(0.72)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
         }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(

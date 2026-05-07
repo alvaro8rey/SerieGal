@@ -109,7 +109,6 @@ struct SeriesDetailView: View {
                         .scaledToFit()
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
-                        .shadow(color: .black.opacity(0.42), radius: 16, x: 0, y: 10)
                 } placeholder: {
                     Rectangle()
                         .fill(Color.clear)
@@ -120,11 +119,11 @@ struct SeriesDetailView: View {
 
             LinearGradient(
                 colors: [
-                    Color.serieGalBlue.opacity(0.15),
-                    Color.serieGalViolet.opacity(0.25),
-                    Color.black.opacity(0.86)
+                    Color.clear,
+                    Color.black.opacity(0.28),
+                    Color.black.opacity(0.9)
                 ],
-                startPoint: .topLeading,
+                startPoint: .top,
                 endPoint: .bottom
             )
 
