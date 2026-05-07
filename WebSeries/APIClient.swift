@@ -46,7 +46,7 @@ struct APIClient {
 
         if http.statusCode >= 400 {
             let message = String(data: data, encoding: .utf8) ?? "Error servidor"
-            throw APIError.server(message)
+            throw APIError.http(statusCode: http.statusCode, message: message)
         }
 
         return data
@@ -54,11 +54,18 @@ struct APIClient {
 }
 
 enum APIError: Error, LocalizedError {
-    case server(String)
+    case http(statusCode: Int, message: String)
+
+    var statusCode: Int {
+        switch self {
+        case .http(let statusCode, _):
+            return statusCode
+        }
+    }
 
     var errorDescription: String? {
         switch self {
-        case .server(let message):
+        case .http(_, let message):
             return message
         }
     }

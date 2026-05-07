@@ -92,6 +92,8 @@ final class DownloadService: NSObject, ObservableObject {
     override init() {
         super.init()
         loadPersistedDownloads()
+        purgeOrphanedDownloadArtifacts()
+        cancelUntrackedBackgroundTasks()
         recomputeStorage()
     }
 
@@ -193,6 +195,7 @@ final class DownloadService: NSObject, ObservableObject {
 
         downloadedItems.remove(at: itemIndex)
         statuses[key] = .notDownloaded
+        purgeOrphanedDownloadArtifacts()
         persistDownloadsIndex()
         recomputeStorage()
     }
@@ -204,6 +207,7 @@ final class DownloadService: NSObject, ObservableObject {
             statuses[item.id] = .notDownloaded
         }
         downloadedItems.removeAll()
+        removeAllDownloadArtifacts()
         persistDownloadsIndex()
         recomputeStorage()
     }
@@ -286,6 +290,7 @@ final class DownloadService: NSObject, ObservableObject {
         for item in downloadedItems {
             statuses[item.id] = .downloaded(item: item)
         }
+        persistDownloadsIndex()
     }
 
     private func recomputeStorage() {
@@ -360,6 +365,35 @@ final class DownloadService: NSObject, ObservableObject {
 
     private func normalizedID(_ value: String) -> String {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func purgeOrphanedDownloadArtifacts() {
+        let directory = downloadsDirectory()
+        let fm = FileManager.default
+
+        guard let children = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else {
+            return
+        }
+
+        let referenced = Set(downloadedItems.map(\.relativeLocalPath) + [indexFileName])
+        for child in children where !referenced.contains(child.lastPathComponent) {
+            try? fm.removeItem(at: child)
+        }
+    }
+
+    private func removeAllDownloadArtifacts() {
+        let directory = downloadsDirectory()
+        let fm = FileManager.default
+        try? fm.removeItem(at: directory)
+        try? fm.createDirectory(at: directory, withIntermediateDirectories: true, attributes: nil)
+    }
+
+    private func cancelUntrackedBackgroundTasks() {
+        downloadSession.getAllTasks { tasks in
+            for task in tasks {
+                task.cancel()
+            }
+        }
     }
 }
 

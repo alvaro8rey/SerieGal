@@ -75,9 +75,20 @@ final class AuthService: ObservableObject {
             debugLog("✅ Sesión válida en /me")
             return true
         } catch {
-            debugLog("❌ Sesión inválida en /me:", error)
-            self.token = nil
-            return false
+            if let apiError = error as? APIError,
+               apiError.statusCode == 401 || apiError.statusCode == 403 {
+                debugLog("❌ Sesión inválida por auth en /me:", error)
+                self.token = nil
+                return false
+            }
+
+            if let urlError = error as? URLError {
+                debugLog("🌐 No hay conexión para validar /me (\(urlError.code.rawValue)). Manteniendo sesión local.")
+                return true
+            }
+
+            debugLog("⚠️ No se pudo validar /me por error no-auth. Manteniendo sesión:", error)
+            return true
         }
     }
 
