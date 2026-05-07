@@ -94,30 +94,46 @@ struct ContentView: View {
                 }
 
                 if !downloads.activeDownloads.isEmpty {
+                    let activeCount = downloads.activeDownloads.count
                     Button {
                         showActiveDownloads = true
                     } label: {
-                        ZStack {
-                            Circle()
-                                .stroke(Color.white.opacity(0.22), lineWidth: 2)
-                                .frame(width: 38, height: 38)
+                        ZStack(alignment: .topTrailing) {
+                            ZStack {
+                                Circle()
+                                    .stroke(Color.white.opacity(0.22), lineWidth: 2)
+                                    .frame(width: 38, height: 38)
 
-                            Circle()
-                                .trim(from: 0, to: max(0.02, min(max(downloads.aggregateActiveProgress, 0), 1)))
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [.serieGalBlue, .serieGalViolet],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                                Circle()
+                                    .trim(from: 0, to: max(0.02, min(max(downloads.aggregateActiveProgress, 0), 1)))
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [.serieGalBlue, .serieGalViolet],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                                    )
+                                    .rotationEffect(.degrees(-90))
+                                    .frame(width: 38, height: 38)
+
+                                Image(systemName: "arrow.down.circle.fill")
+                                    .font(.headline)
+                                    .foregroundColor(.serieGalText)
+                            }
+
+                            Text(activeCount > 99 ? "99+" : "\(activeCount)")
+                                .font(.caption2.weight(.bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, activeCount > 99 ? 5 : 0)
+                                .frame(minWidth: 18, minHeight: 18)
+                                .background(Color.red)
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.black.opacity(0.3), lineWidth: 0.5)
                                 )
-                                .rotationEffect(.degrees(-90))
-                                .frame(width: 38, height: 38)
-
-                            Image(systemName: "arrow.down.circle.fill")
-                                .font(.headline)
-                                .foregroundColor(.serieGalText)
+                                .offset(x: 8, y: -7)
                         }
                         .background(.ultraThinMaterial)
                         .clipShape(Circle())
