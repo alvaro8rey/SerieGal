@@ -279,7 +279,7 @@ struct MovieDetailView: View {
                     .foregroundColor(.serieGalText)
                     .padding(.vertical, 8)
             }
-        case .downloading(let progressValue, let quality):
+        case .downloading(let progressValue, let quality, let downloadedBytes, let totalBytes):
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Label("Descargando (\(quality.title))", systemImage: "arrow.down.circle.fill")
@@ -293,7 +293,7 @@ struct MovieDetailView: View {
                 }
                 ProgressView(value: progressValue)
                     .tint(.serieGalBlue)
-                Text("\(Int((progressValue * 100).rounded()))%")
+                Text(downloadProgressText(progress: progressValue, downloadedBytes: downloadedBytes, totalBytes: totalBytes))
                     .font(.caption)
                     .foregroundColor(.serieGalSecondary)
             }
@@ -346,6 +346,21 @@ struct MovieDetailView: View {
             return String(format: "%d:%02d:%02d", hours, minutes, seconds)
         }
         return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    private func downloadProgressText(progress: Double, downloadedBytes: Int64?, totalBytes: Int64?) -> String {
+        let percentText = "\(Int((progress * 100).rounded()))%"
+        guard let downloadedBytes, let totalBytes, totalBytes > 0 else {
+            return percentText
+        }
+        return "\(formattedBytes(downloadedBytes)) / \(formattedBytes(totalBytes)) · \(percentText)"
+    }
+
+    private func formattedBytes(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
 }
 

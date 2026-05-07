@@ -33,7 +33,12 @@ enum DownloadQuality: String, CaseIterable, Identifiable {
 
 enum DownloadStatus: Equatable {
     case notDownloaded
-    case downloading(progress: Double, quality: DownloadQuality)
+    case downloading(
+        progress: Double,
+        quality: DownloadQuality,
+        downloadedBytes: Int64?,
+        totalBytes: Int64?
+    )
     case downloaded(item: DownloadedMedia)
     case failed(message: String)
 }
@@ -60,6 +65,7 @@ private struct PendingDownload {
     let episode: Episode
     let episodeTitle: String
     let quality: DownloadQuality
+    var estimatedTotalBytes: Int64?
 }
 
 final class DownloadService: NSObject, ObservableObject {
@@ -99,11 +105,12 @@ final class DownloadService: NSObject, ObservableObject {
 
     func localPlaybackURL(for episode: Episode, seriesId: String) -> URL? {
         let media = downloadedItems.first { item in
-            item.seriesId == seriesId && item.episodeId == episode.id
+            normalizedID(item.seriesId) == normalizedID(seriesId)
+                && normalizedID(item.episodeId) == normalizedID(episode.id)
         }
         guard let media else { return nil }
         let absolute = downloadsDirectory().appendingPathComponent(media.relativeLocalPath)
-        return FileManager.default.fileExists(atPath: absolute.path) ? absolute : nil
+        return playableURL(for: absolute)
     }
 
     func startDownload(
@@ -148,9 +155,15 @@ final class DownloadService: NSObject, ObservableObject {
             seriesId: seriesId,
             episode: episode,
             episodeTitle: preferredTitle,
-            quality: quality
+            quality: quality,
+            estimatedTotalBytes: nil
         )
-        statuses[key] = .downloading(progress: 0, quality: quality)
+        statuses[key] = .downloading(
+            progress: 0,
+            quality: quality,
+            downloadedBytes: nil,
+            totalBytes: nil
+        )
         task.resume()
     }
 
@@ -203,7 +216,10 @@ final class DownloadService: NSObject, ObservableObject {
             return
         }
 
-        let destinationFolder = downloadsDirectory().appendingPathComponent(safeFolderName(for: pending.key))
+        let extensionSuffix = tempURL.pathExtension.isEmpty ? "" : ".\(tempURL.pathExtension)"
+        let destinationFolder = downloadsDirectory().appendingPathComponent(
+            safeFolderName(for: pending.key) + extensionSuffix
+        )
         try? FileManager.default.removeItem(at: destinationFolder)
 
         do {
@@ -301,6 +317,50 @@ final class DownloadService: NSObject, ObservableObject {
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "|", with: "_")
     }
+
+    private func estimatedBytes(for quality: DownloadQuality, duration: Double) -> Int64? {
+        guard duration.isFinite, duration > 0 else { return nil }
+        return Int64((quality.minimumBitrate * duration) / 8)
+    }
+
+    private func playableURL(for absolutePath: URL) -> URL? {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: absolutePath.path) else { return nil }
+
+        // Typical AVAssetDownloadTask output is a .movpkg bundle.
+        if absolutePath.pathExtension == "movpkg" {
+            return absolutePath
+        }
+
+        var isDirectory: ObjCBool = false
+        if fm.fileExists(atPath: absolutePath.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            if let children = try? fm.contentsOfDirectory(
+                at: absolutePath,
+                includingPropertiesForKeys: nil
+            ) {
+                if let movpkg = children.first(where: { $0.pathExtension == "movpkg" }) {
+                    return movpkg
+                }
+                if let playlist = children.first(where: { $0.pathExtension == "m3u8" }) {
+                    return playlist
+                }
+            }
+
+            if let enumerator = fm.enumerator(at: absolutePath, includingPropertiesForKeys: nil) {
+                for case let fileURL as URL in enumerator {
+                    if fileURL.pathExtension == "m3u8" {
+                        return fileURL
+                    }
+                }
+            }
+        }
+
+        return absolutePath
+    }
+
+    private func normalizedID(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
 }
 
 extension DownloadService: AVAssetDownloadDelegate, URLSessionDelegate {
@@ -311,7 +371,7 @@ extension DownloadService: AVAssetDownloadDelegate, URLSessionDelegate {
         totalTimeRangesLoaded loadedTimeRanges: [NSValue],
         timeRangeExpectedToLoad: CMTimeRange
     ) {
-        guard let pending = pendingByTaskId[assetDownloadTask.taskIdentifier] else { return }
+        guard var pending = pendingByTaskId[assetDownloadTask.taskIdentifier] else { return }
         let expected = timeRangeExpectedToLoad.duration.seconds
         guard expected > 0 else { return }
 
@@ -319,9 +379,20 @@ extension DownloadService: AVAssetDownloadDelegate, URLSessionDelegate {
             .map { $0.timeRangeValue.duration.seconds }
             .reduce(0, +)
         let ratio = min(max(loaded / expected, 0), 1)
+        if pending.estimatedTotalBytes == nil {
+            pending.estimatedTotalBytes = estimatedBytes(for: pending.quality, duration: expected)
+            pendingByTaskId[assetDownloadTask.taskIdentifier] = pending
+        }
+        let totalBytes = pending.estimatedTotalBytes
+        let downloadedBytes = totalBytes.map { Int64(Double($0) * ratio) }
 
         DispatchQueue.main.async {
-            self.statuses[pending.key] = .downloading(progress: ratio, quality: pending.quality)
+            self.statuses[pending.key] = .downloading(
+                progress: ratio,
+                quality: pending.quality,
+                downloadedBytes: downloadedBytes,
+                totalBytes: totalBytes
+            )
         }
     }
 
