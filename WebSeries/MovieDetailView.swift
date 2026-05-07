@@ -144,25 +144,47 @@ struct MovieDetailView: View {
     }
 
     private var hero: some View {
+        let coverURL = URL(string: ServerConfig.webBaseURL + "/images/\(movie.id).jpg")
+
         ZStack(alignment: .bottomLeading) {
             ZStack {
-                Rectangle()
-                    .fill(Color.serieGalCardBackground)
-
-                CachedAsyncImage(
-                    url: URL(string: ServerConfig.webBaseURL + "/images/\(movie.id).jpg")
-                ) { image in
+                CachedAsyncImage(url: coverURL) { image in
                     image
                         .resizable()
-                        .scaledToFit()
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
+                        .scaledToFill()
+                        .blur(radius: 20)
+                        .overlay(Color.black.opacity(0.34))
+                        .scaleEffect(1.1)
                 } placeholder: {
                     Rectangle()
                         .fill(Color.serieGalCardBackground)
                 }
+
+                CachedAsyncImage(url: coverURL) { image in
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.38), radius: 16, x: 0, y: 10)
+                        .frame(maxWidth: 250, maxHeight: 320, alignment: .topTrailing)
+                        .padding(.top, 14)
+                        .padding(.trailing, 18)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                } placeholder: {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+                        .frame(width: 210, height: 300)
+                        .padding(.top, 14)
+                        .padding(.trailing, 18)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
             }
             .frame(height: 360)
+            .clipped()
 
             LinearGradient(
                 colors: [
@@ -194,6 +216,7 @@ struct MovieDetailView: View {
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 22)
+            .padding(.trailing, 152)
         }
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay(

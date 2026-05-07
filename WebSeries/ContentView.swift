@@ -468,31 +468,53 @@ struct ContentView: View {
         secondaryLabel: String,
         secondaryDestination: AnyView
     ) -> some View {
+        let coverURL = URL(string: ServerConfig.webBaseURL + "/images/\(id).jpg")
+
         ZStack(alignment: .bottomLeading) {
             ZStack {
-                Rectangle()
-                    .fill(Color.serieGalCardBackground)
-
-                CachedAsyncImage(
-                    url: URL(string: ServerConfig.webBaseURL + "/images/\(id).jpg")
-                ) { image in
+                CachedAsyncImage(url: coverURL) { image in
                     image
                         .resizable()
-                        .scaledToFit()
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 10)
+                        .scaledToFill()
+                        .blur(radius: 18)
+                        .overlay(Color.black.opacity(0.32))
+                        .scaleEffect(1.08)
                 } placeholder: {
                     Rectangle()
                         .fill(Color.serieGalCardBackground)
                 }
+
+                CachedAsyncImage(url: coverURL) { image in
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                        )
+                        .shadow(color: .black.opacity(0.35), radius: 14, x: 0, y: 9)
+                        .frame(maxWidth: 230, maxHeight: 285, alignment: .topTrailing)
+                        .padding(.top, 14)
+                        .padding(.trailing, 16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                } placeholder: {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+                        .frame(width: 190, height: 270)
+                        .padding(.top, 14)
+                        .padding(.trailing, 16)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
             }
             .frame(height: 320)
+            .clipped()
 
             LinearGradient(
                 colors: [
-                    Color.serieGalBlue.opacity(0.15),
-                    Color.serieGalViolet.opacity(0.2),
-                    Color.black.opacity(0.85)
+                    Color.serieGalBlue.opacity(0.2),
+                    Color.serieGalViolet.opacity(0.25),
+                    Color.black.opacity(0.9)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottom
@@ -553,7 +575,10 @@ struct ContentView: View {
                     }
                 }
             }
-            .padding(18)
+            .padding(.leading, 18)
+            .padding(.top, 18)
+            .padding(.bottom, 18)
+            .padding(.trailing, 164)
         }
         .overlay(alignment: .topTrailing) {
             Button(action: favoriteAction) {
