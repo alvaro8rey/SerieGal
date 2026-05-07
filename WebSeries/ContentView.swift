@@ -470,7 +470,7 @@ struct ContentView: View {
     ) -> some View {
         let coverURL = URL(string: ServerConfig.webBaseURL + "/images/\(id).jpg")
 
-        ZStack(alignment: .bottomLeading) {
+        return ZStack(alignment: .bottomLeading) {
             ZStack {
                 CachedAsyncImage(url: coverURL) { image in
                     image
