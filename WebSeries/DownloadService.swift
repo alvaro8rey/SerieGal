@@ -59,6 +59,17 @@ struct DownloadedMedia: Codable, Identifiable, Equatable {
     }
 }
 
+struct ActiveDownloadInfo: Identifiable, Equatable {
+    let id: String
+    let seriesId: String
+    let episodeId: String
+    let title: String
+    let quality: DownloadQuality
+    let progress: Double
+    let downloadedBytes: Int64?
+    let totalBytes: Int64?
+}
+
 private struct PendingDownload {
     let key: String
     let seriesId: String
@@ -73,6 +84,8 @@ final class DownloadService: NSObject, ObservableObject {
     @Published private(set) var statuses: [String: DownloadStatus] = [:]
     @Published private(set) var downloadedItems: [DownloadedMedia] = []
     @Published private(set) var totalStorageBytes: Int64 = 0
+    @Published private(set) var activeDownloads: [ActiveDownloadInfo] = []
+    @Published private(set) var aggregateActiveProgress: Double = 0
 
     private lazy var downloadSession: AVAssetDownloadURLSession = {
         let configuration = URLSessionConfiguration.background(withIdentifier: "seriegel.offline.hls")
@@ -85,6 +98,7 @@ final class DownloadService: NSObject, ObservableObject {
 
     private var pendingByTaskId: [Int: PendingDownload] = [:]
     private var tempLocationByTaskId: [Int: URL] = [:]
+    private var metadataByKey: [String: (title: String, seriesId: String, episodeId: String)] = [:]
 
     private let folderName = "offline-downloads"
     private let indexFileName = "download-index.json"
@@ -94,6 +108,7 @@ final class DownloadService: NSObject, ObservableObject {
         loadPersistedDownloads()
         purgeOrphanedDownloadArtifacts()
         cancelUntrackedBackgroundTasks()
+        rebuildActiveDownloads()
         recomputeStorage()
     }
 
@@ -160,12 +175,14 @@ final class DownloadService: NSObject, ObservableObject {
             quality: quality,
             estimatedTotalBytes: nil
         )
+        metadataByKey[key] = (title: preferredTitle, seriesId: seriesId, episodeId: episode.id)
         statuses[key] = .downloading(
             progress: 0,
             quality: quality,
             downloadedBytes: nil,
             totalBytes: nil
         )
+        rebuildActiveDownloads()
         task.resume()
     }
 
@@ -179,6 +196,7 @@ final class DownloadService: NSObject, ObservableObject {
         }
         DispatchQueue.main.async {
             self.statuses[key] = .notDownloaded
+            self.rebuildActiveDownloads()
         }
     }
 
@@ -195,8 +213,10 @@ final class DownloadService: NSObject, ObservableObject {
 
         downloadedItems.remove(at: itemIndex)
         statuses[key] = .notDownloaded
+        metadataByKey[key] = nil
         purgeOrphanedDownloadArtifacts()
         persistDownloadsIndex()
+        rebuildActiveDownloads()
         recomputeStorage()
     }
 
@@ -207,8 +227,10 @@ final class DownloadService: NSObject, ObservableObject {
             statuses[item.id] = .notDownloaded
         }
         downloadedItems.removeAll()
+        metadataByKey.removeAll()
         removeAllDownloadArtifacts()
         persistDownloadsIndex()
+        rebuildActiveDownloads()
         recomputeStorage()
     }
 
@@ -251,9 +273,11 @@ final class DownloadService: NSObject, ObservableObject {
             downloadedItems.append(media)
             statuses[pending.key] = .downloaded(item: media)
             persistDownloadsIndex()
+            rebuildActiveDownloads()
             recomputeStorage()
         } catch {
             statuses[pending.key] = .failed(message: "Error moviendo descarga")
+            rebuildActiveDownloads()
         }
 
         pendingByTaskId[taskIdentifier] = nil
@@ -289,8 +313,14 @@ final class DownloadService: NSObject, ObservableObject {
 
         for item in downloadedItems {
             statuses[item.id] = .downloaded(item: item)
+            metadataByKey[item.id] = (
+                title: item.episodeTitle,
+                seriesId: item.seriesId,
+                episodeId: item.episodeId
+            )
         }
         persistDownloadsIndex()
+        rebuildActiveDownloads()
     }
 
     private func recomputeStorage() {
@@ -367,6 +397,57 @@ final class DownloadService: NSObject, ObservableObject {
         value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
+    private func rebuildActiveDownloads() {
+        var active: [ActiveDownloadInfo] = []
+
+        for (key, status) in statuses {
+            guard case .downloading(let progress, let quality, let downloadedBytes, let totalBytes) = status else {
+                continue
+            }
+            let metadata = metadataByKey[key]
+            let idParts = key.split(separator: "|", maxSplits: 1).map(String.init)
+            let fallbackSeriesId = idParts.indices.contains(0) ? idParts[0] : ""
+            let fallbackEpisodeId = idParts.indices.contains(1) ? idParts[1] : ""
+
+            active.append(
+                ActiveDownloadInfo(
+                    id: key,
+                    seriesId: metadata?.seriesId ?? fallbackSeriesId,
+                    episodeId: metadata?.episodeId ?? fallbackEpisodeId,
+                    title: metadata?.title ?? "Descargando",
+                    quality: quality,
+                    progress: progress,
+                    downloadedBytes: downloadedBytes,
+                    totalBytes: totalBytes
+                )
+            )
+        }
+
+        active.sort { lhs, rhs in
+            lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+        }
+        activeDownloads = active
+
+        guard !active.isEmpty else {
+            aggregateActiveProgress = 0
+            return
+        }
+
+        let knownTotals = active.compactMap { item -> (downloaded: Int64, total: Int64)? in
+            guard let downloaded = item.downloadedBytes, let total = item.totalBytes, total > 0 else { return nil }
+            return (downloaded, total)
+        }
+
+        if knownTotals.count == active.count {
+            let downloadedSum = knownTotals.reduce(Int64(0)) { $0 + $1.downloaded }
+            let totalSum = knownTotals.reduce(Int64(0)) { $0 + $1.total }
+            aggregateActiveProgress = totalSum > 0 ? min(max(Double(downloadedSum) / Double(totalSum), 0), 1) : 0
+        } else {
+            let avg = active.reduce(0.0) { $0 + $1.progress } / Double(active.count)
+            aggregateActiveProgress = min(max(avg, 0), 1)
+        }
+    }
+
     private func purgeOrphanedDownloadArtifacts() {
         let directory = downloadsDirectory()
         let fm = FileManager.default
@@ -427,6 +508,7 @@ extension DownloadService: AVAssetDownloadDelegate, URLSessionDelegate {
                 downloadedBytes: downloadedBytes,
                 totalBytes: totalBytes
             )
+            self.rebuildActiveDownloads()
         }
     }
 
@@ -453,6 +535,7 @@ extension DownloadService: AVAssetDownloadDelegate, URLSessionDelegate {
                 }
                 self.pendingByTaskId[taskIdentifier] = nil
                 self.tempLocationByTaskId[taskIdentifier] = nil
+                self.rebuildActiveDownloads()
                 return
             }
             self.finalizeDownload(taskIdentifier: taskIdentifier)

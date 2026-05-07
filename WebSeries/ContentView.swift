@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var showSearch = false
     @State private var showFavorites = false
     @State private var showDownloads = false
+    @State private var showActiveDownloads = false
     @State private var hasPrefetchedInitialCovers = false
     @State private var featuredItems: [FeaturedItem] = []
     @State private var featuredSelection = 0
@@ -37,6 +38,12 @@ struct ContentView: View {
             }
             .navigationDestination(isPresented: $showDownloads) {
                 DownloadsView()
+            }
+            .sheet(isPresented: $showActiveDownloads) {
+                NavigationStack {
+                    ActiveDownloadsView()
+                }
+                .presentationDetents([.medium, .large])
             }
             .task {
                 if service.catalog == nil && service.error == nil {
@@ -84,6 +91,39 @@ struct ContentView: View {
                         .frame(width: 38, height: 38)
                         .background(.ultraThinMaterial)
                         .clipShape(Circle())
+                }
+
+                if !downloads.activeDownloads.isEmpty {
+                    Button {
+                        showActiveDownloads = true
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .stroke(Color.white.opacity(0.22), lineWidth: 2)
+                                .frame(width: 38, height: 38)
+
+                            Circle()
+                                .trim(from: 0, to: max(0.02, min(max(downloads.aggregateActiveProgress, 0), 1)))
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [.serieGalBlue, .serieGalViolet],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ),
+                                    style: StrokeStyle(lineWidth: 2.5, lineCap: .round)
+                                )
+                                .rotationEffect(.degrees(-90))
+                                .frame(width: 38, height: 38)
+
+                            Image(systemName: "arrow.down.circle.fill")
+                                .font(.headline)
+                                .foregroundColor(.serieGalText)
+                        }
+                        .background(.ultraThinMaterial)
+                        .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .animation(.easeInOut(duration: 0.25), value: downloads.aggregateActiveProgress)
                 }
 
                 Menu {
